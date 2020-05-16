@@ -26,7 +26,7 @@ public class ECHO {
 
         if (!this.warmed) {
             this.warmUp(sample);
-            return new ClassificationResult(null, false);
+            return new ClassificationResult(null, false, 0.0);
         }
 
         List<ClassificationResult> classificationResults = this.ensemble.stream()
@@ -51,13 +51,32 @@ public class ECHO {
                 .max(Map.Entry.comparingByValue()).orElse(null);
 
         if (maxEntry != null) {
-            return new ClassificationResult(maxEntry.getKey(), true);
+            return new ClassificationResult(maxEntry.getKey(), true,
+                    calculateConfidence(classificationResults));
         } else {
-            return new ClassificationResult(null, false);
+            return new ClassificationResult(null, false, 0.0);
         }
     }
 
+    private static double calculateConfidence(List<ClassificationResult> classificationResults) {
+
+        List<Double> confidenceValues = classificationResults
+                .stream()
+                .map(ClassificationResult::getConfidence)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        Double maxConfidence = confidenceValues.stream().max(Double::compareTo).orElse(1.0);
+
+        return confidenceValues
+                .stream()
+                .map(confidenceValue -> confidenceValue / maxConfidence)
+                .reduce(0.0, Double::sum) / confidenceValues.size();
+
+    }
+
     private void changeDetection() {}
+
+    private void novelClassDetection() {}
 
     private void warmUp(final Sample sample) {
         this.warmed = true;

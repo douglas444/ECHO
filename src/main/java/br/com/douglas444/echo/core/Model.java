@@ -19,7 +19,11 @@ public class Model {
         final double distance = closestPseudoPoint.getCentroid().distance(sample);
 
         return new ClassificationResult(closestPseudoPoint.getLabel(),
-                distance <= closestPseudoPoint.getRadius());
+                distance <= closestPseudoPoint.getRadius(), this.calculateConfidence(sample));
 
+    }
+
+    private double calculateConfidence(final Sample sample) {
+        return 0.0;
     }
 }

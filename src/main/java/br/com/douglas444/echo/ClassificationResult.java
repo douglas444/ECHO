@@ -7,8 +7,9 @@ public class ClassificationResult {
 
     private final Integer label;
     private final boolean insideBoundary;
+    private final double confidence;
 
-    public ClassificationResult(Integer label, boolean insideBoundary) {
+    public ClassificationResult(Integer label, boolean insideBoundary, double confidence) {
 
         if (insideBoundary && label == null) {
             throw new IllegalArgumentException();
@@ -16,6 +17,7 @@ public class ClassificationResult {
 
         this.label = label;
         this.insideBoundary = insideBoundary;
+        this.confidence = confidence;
     }
 
     public void ifInsideBoundary(final Consumer<Integer> action) {
@@ -64,4 +66,7 @@ public class ClassificationResult {
         }
     }
 
+    public double getConfidence() {
+        return confidence;
+    }
 }
