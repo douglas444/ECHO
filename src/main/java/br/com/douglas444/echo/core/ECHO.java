@@ -9,35 +9,63 @@ import java.util.stream.Collectors;
 public class ECHO {
 
     private boolean warmed;
-    private List<Sample> outlierBuffer;
+    private List<Sample> filteredOutlierBuffer;
     private List<Model> ensemble;
     private List<Double> confidenceWindow;
     private List<Integer> knownLabels;
 
-    public ECHO() {
+    private int filteredOutlierBufferMaxSize;
+
+    public ECHO(int filteredOutlierBufferMaxSize) {
         this.warmed = false;
         this.ensemble = new ArrayList<>();
-        this.outlierBuffer = new ArrayList<>();
+        this.filteredOutlierBuffer = new ArrayList<>();
         this.knownLabels = new ArrayList<>();
         this.confidenceWindow = new ArrayList<>();
+
+        this.filteredOutlierBufferMaxSize = filteredOutlierBufferMaxSize;
     }
 
     public ClassificationResult process(final Sample sample) {
 
         if (!this.warmed) {
             this.warmUp(sample);
-            return new ClassificationResult(null, false, 0.0);
+            return new ClassificationResult(null, false, null);
         }
 
-        List<ClassificationResult> classificationResults = this.ensemble.stream()
+        final ClassificationResult classificationResult = this.classify(sample);
+
+        classificationResult.ifInsideBoundaryOrElse((label, confidence) -> {
+
+            this.confidenceWindow.add(confidence);
+            final Optional<Integer> changePoint = this.changeDetection();
+            changePoint.ifPresent(this::updateClassifier);
+
+        }, () -> {
+
+            this.filteredOutlierBuffer.add(sample);
+            if (this.filteredOutlierBuffer.size() >= this.filteredOutlierBufferMaxSize) {
+                this.novelClassDetection();
+            }
+
+        });
+
+        return classificationResult;
+
+    }
+
+    private ClassificationResult classify(final Sample sample) {
+
+        final List<ClassificationResult> classificationResults = this.ensemble.stream()
                 .map(model -> model.classify(sample))
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        HashMap<Integer, Integer> votesByLabel = new HashMap<>();
+        double ensembleConfidence = calculateConfidence(classificationResults);
 
+        final HashMap<Integer, Integer> votesByLabel = new HashMap<>();
         classificationResults.forEach(classificationResult -> {
 
-            classificationResult.ifInsideBoundary(label -> {
+            classificationResult.ifInsideBoundary((label, modelConfidence) -> {
                 votesByLabel.putIfAbsent(label, 0);
                 Integer votes = votesByLabel.get(label);
                 votesByLabel.put(label, votes + 1);
@@ -45,17 +73,13 @@ public class ECHO {
 
         });
 
-        Map.Entry<Integer, Integer> maxEntry = votesByLabel
+        return votesByLabel
                 .entrySet()
                 .stream()
-                .max(Map.Entry.comparingByValue()).orElse(null);
+                .max(Map.Entry.comparingByValue())
+                .map(entry -> new ClassificationResult(entry.getKey(), true, ensembleConfidence))
+                .orElseGet(() -> new ClassificationResult(null, false, 0.0));
 
-        if (maxEntry != null) {
-            return new ClassificationResult(maxEntry.getKey(), true,
-                    calculateConfidence(classificationResults));
-        } else {
-            return new ClassificationResult(null, false, 0.0);
-        }
     }
 
     private static double calculateConfidence(List<ClassificationResult> classificationResults) {
@@ -74,9 +98,13 @@ public class ECHO {
 
     }
 
-    private void changeDetection() {}
+    private Optional<Integer> changeDetection() {
+        return Optional.empty();
+    }
 
     private void novelClassDetection() {}
+
+    private void updateClassifier(int changePoint) {}
 
     private void warmUp(final Sample sample) {
         this.warmed = true;

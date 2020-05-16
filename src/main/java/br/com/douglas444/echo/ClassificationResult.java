@@ -1,17 +1,17 @@
 package br.com.douglas444.echo;
 
 import java.util.Optional;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 public class ClassificationResult {
 
     private final Integer label;
     private final boolean insideBoundary;
-    private final double confidence;
+    private final Double confidence;
 
-    public ClassificationResult(Integer label, boolean insideBoundary, double confidence) {
+    public ClassificationResult(Integer label, boolean insideBoundary, Double confidence) {
 
-        if (insideBoundary && label == null) {
+        if (insideBoundary && (label == null || confidence == null)) {
             throw new IllegalArgumentException();
         }
 
@@ -20,40 +20,20 @@ public class ClassificationResult {
         this.confidence = confidence;
     }
 
-    public void ifInsideBoundary(final Consumer<Integer> action) {
+    public void ifInsideBoundary(final BiConsumer<Integer, Double> action) {
 
         if (this.insideBoundary) {
-            action.accept(this.label);
+            action.accept(this.label, this.confidence);
         }
 
     }
 
-    public void ifInsideBoundaryOrElse(final Consumer<Integer> consumer, final Runnable runnable) {
+    public void ifInsideBoundaryOrElse(final BiConsumer<Integer, Double> consumer, final Runnable runnable) {
 
         if (this.insideBoundary) {
-            consumer.accept(this.label);
+            consumer.accept(this.label, this.confidence);
         } else {
             runnable.run();
-        }
-
-    }
-
-    public void ifInsideBoundaryOrElse(final Consumer<Integer> consumer1,
-                                       final Consumer<Optional<Integer>> consumer2) {
-
-        if (this.insideBoundary) {
-            consumer1.accept(this.label);
-        } else {
-
-            final Optional<Integer> argument;
-
-            if (this.label == null) {
-                argument = Optional.empty();
-            } else {
-                argument = Optional.of(this.label);
-            }
-
-            consumer2.accept(argument);
         }
 
     }
@@ -66,7 +46,7 @@ public class ClassificationResult {
         }
     }
 
-    public double getConfidence() {
+    public Double getConfidence() {
         return confidence;
     }
 }
