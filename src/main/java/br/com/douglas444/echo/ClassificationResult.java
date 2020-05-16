@@ -6,29 +6,29 @@ import java.util.function.Consumer;
 public class ClassificationResult {
 
     private final Integer label;
-    private final boolean insideDecisionBoundary;
+    private final boolean insideBoundary;
 
-    public ClassificationResult(Integer label, boolean insideDecisionBoundary) {
+    public ClassificationResult(Integer label, boolean insideBoundary) {
 
-        if (insideDecisionBoundary && label == null) {
+        if (insideBoundary && label == null) {
             throw new IllegalArgumentException();
         }
 
         this.label = label;
-        this.insideDecisionBoundary = insideDecisionBoundary;
+        this.insideBoundary = insideBoundary;
     }
 
-    public void ifExplained(final Consumer<Integer> action) {
+    public void ifInsideBoundary(final Consumer<Integer> action) {
 
-        if (this.insideDecisionBoundary) {
+        if (this.insideBoundary) {
             action.accept(this.label);
         }
 
     }
 
-    public void ifExplainedOrElse(final Consumer<Integer> consumer, final Runnable runnable) {
+    public void ifInsideBoundaryOrElse(final Consumer<Integer> consumer, final Runnable runnable) {
 
-        if (this.insideDecisionBoundary) {
+        if (this.insideBoundary) {
             consumer.accept(this.label);
         } else {
             runnable.run();
@@ -36,10 +36,10 @@ public class ClassificationResult {
 
     }
 
-    public void ifExplainedOrElse(final Consumer<Integer> consumer1,
-                                  final Consumer<Optional<Integer>> consumer2) {
+    public void ifInsideBoundaryOrElse(final Consumer<Integer> consumer1,
+                                       final Consumer<Optional<Integer>> consumer2) {
 
-        if (this.insideDecisionBoundary) {
+        if (this.insideBoundary) {
             consumer1.accept(this.label);
         } else {
 
