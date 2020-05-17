@@ -12,6 +12,8 @@ public class PseudoPoint {
     private Sample centroid;
     private double radius;
     private HashMap<Integer, Integer> numberOfSamplesByLabel;
+    private int totalNumberOfSamples;
+    private int numberOfSampleForMostFrequentLabel;
     private Integer label;
 
 
@@ -36,6 +38,10 @@ public class PseudoPoint {
         return pseudoPointByCentroid.get(closestCentroid);
     }
 
+    public double calculatePurity() {
+        return (double) this.numberOfSampleForMostFrequentLabel / this.totalNumberOfSamples;
+    }
+
     public Sample getCentroid() {
         return centroid;
     }
@@ -47,4 +53,14 @@ public class PseudoPoint {
     public double getRadius() {
         return radius;
     }
+
+    public int getTotalNumberOfSamples() {
+        return totalNumberOfSamples;
+    }
+
+    public int getNumberOfSampleForMostFrequentLabel() {
+        return numberOfSampleForMostFrequentLabel;
+    }
+
+
 }

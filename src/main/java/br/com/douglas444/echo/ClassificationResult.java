@@ -46,6 +46,10 @@ public class ClassificationResult {
         }
     }
 
+    public boolean isInsideBoundary() {
+        return insideBoundary;
+    }
+
     public Double getConfidence() {
         return confidence;
     }
