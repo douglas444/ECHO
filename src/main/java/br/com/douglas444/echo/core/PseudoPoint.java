@@ -17,7 +17,7 @@ public class PseudoPoint {
     private Integer label;
 
 
-    public static PseudoPoint getClosestPseudoPoint(Sample sample, List<PseudoPoint> pseudoPoints) {
+    public static PseudoPoint getClosestPseudoPoint(final Sample sample, final List<PseudoPoint> pseudoPoints) {
 
         if (pseudoPoints.isEmpty()) {
             throw new IllegalArgumentException();

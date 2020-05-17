@@ -10,10 +10,10 @@ import java.util.stream.Collectors;
 public class ECHO {
 
     private boolean warmed;
-    private List<Sample> filteredOutlierBuffer;
-    private List<Model> ensemble;
-    private List<Double> confidenceWindow;
-    private List<Integer> knownLabels;
+    private final List<Sample> filteredOutlierBuffer;
+    private final List<Model> ensemble;
+    private final List<Double> confidenceWindow;
+    private final List<Integer> knownLabels;
 
     private double gamma;
     private double sensitivity;
@@ -91,12 +91,12 @@ public class ECHO {
 
     private static double calculateConfidence(List<ClassificationResult> classificationResults) {
 
-        List<Double> confidenceValues = classificationResults
+        final List<Double> confidenceValues = classificationResults
                 .stream()
                 .map(ClassificationResult::getConfidence)
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        Double maxConfidence = confidenceValues.stream().max(Double::compareTo).orElse(1.0);
+        final Double maxConfidence = confidenceValues.stream().max(Double::compareTo).orElse(1.0);
 
         return confidenceValues
                 .stream()
@@ -109,11 +109,12 @@ public class ECHO {
 
         final int n = this.confidenceWindow.size();
         final double meanConfidence = this.confidenceWindow.stream().reduce(0.0, Double::sum) / n;
-        final int cushion = Math.max(100, (int) Math.floor(Math.pow(n, this.gamma))) ;
+        final int cushion = Math.max(100, (int) Math.floor(Math.pow(n, this.gamma)));
 
-        if ((n > 2 * cushion && meanConfidence <= 0.3) || n >= this.confidenceWindowsMaxSize) {
+        if ((n > 2 * cushion && meanConfidence <= 0.3) || n > this.confidenceWindowsMaxSize) {
             return Optional.of(n);
         }
+
 
         double maxLLRS = 0; //LLRS stands for Log Likelihood Ratio Sum
         int maxLLRSIndex = -1;
@@ -126,7 +127,7 @@ public class ECHO {
             final BetaDistribution postBeta = estimateBetaDistribution(
                     this.confidenceWindow.subList(i, n));
 
-            double lLRS = this.confidenceWindow.subList(i + 1, n)
+            final double lLRS = this.confidenceWindow.subList(i + 1, n)
                     .stream()
                     .map(x -> preBeta.density(x) / postBeta.density(x))
                     .map(Math::log)
@@ -139,25 +140,29 @@ public class ECHO {
 
         }
 
-        if (maxLLRS > -Math.log(this.sensitivity) && maxLLRSIndex != -1) {
-            return Optional.of(maxLLRSIndex);
-        } else {
-            return Optional.empty();
+        if (maxLLRSIndex != -1 && n >= 100 && meanConfidence < 0.3) {
+            return Optional.of(n);
         }
+
+        if (maxLLRSIndex != -1 && maxLLRS > -Math.log(this.sensitivity)) {
+            return Optional.of(maxLLRSIndex);
+        }
+
+        return Optional.empty();
     }
 
     public static BetaDistribution estimateBetaDistribution(final List<Double> data) {
 
-        double mean = data.stream().reduce(0.0, Double::sum) / data.size();
+        final double mean = data.stream().reduce(0.0, Double::sum) / data.size();
 
-        double variance = data
+        final double variance = data
                 .stream()
                 .map(value -> Math.abs(value - mean))
                 .map(value -> value * value)
                 .reduce(0.0, Double::sum) / data.size();
 
-        double alpha = ((Math.pow(mean, 2) - Math.pow(mean, 3)) / variance) - mean;
-        double beta = alpha * ((1 / mean) - 1);
+        final double alpha = ((Math.pow(mean, 2) - Math.pow(mean, 3)) / variance) - mean;
+        final double beta = alpha * ((1 / mean) - 1);
 
         return new BetaDistribution(alpha, beta);
     }

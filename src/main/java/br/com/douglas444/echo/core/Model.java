@@ -9,8 +9,8 @@ import java.util.stream.IntStream;
 
 public class Model {
 
-    private List<PseudoPoint> pseudoPoints;
-    private double[] correlationVector;
+    private final List<PseudoPoint> pseudoPoints;
+    private final double[] correlationVector;
 
     public Model(List<PseudoPoint> pseudoPoints) {
         this.pseudoPoints = pseudoPoints;
@@ -28,7 +28,8 @@ public class Model {
             final Sample labeledSample = labeledSamples.get(i);
             final PseudoPoint closestPseudoPoint = PseudoPoint.getClosestPseudoPoint(labeledSample, this.pseudoPoints);
 
-            boolean hit = closestPseudoPoint.getCentroid().distance(labeledSample) <= closestPseudoPoint.getRadius();;
+            final boolean hit = closestPseudoPoint.getCentroid()
+                    .distance(labeledSample) <= closestPseudoPoint.getRadius();
 
             hits[i] = hit ? 1 : 0;
             associationValues[i] = calculateAssociation(labeledSample, closestPseudoPoint);
@@ -71,23 +72,23 @@ public class Model {
         return closestPseudoPoint.getRadius() - sample.distance(closestPseudoPoint.getCentroid());
     }
 
-    private static double calculatePearsonCorrelationCoefficient(double[] v1, double[] v2) {
+    private static double calculatePearsonCorrelationCoefficient(final double[] v1, final double[] v2) {
 
         if (v1.length != v2.length) {
             throw new IllegalStateException();
         }
 
-        int n = v1.length;
+        final int n = v1.length;
 
-        double v1Mean = Arrays.stream(v1).sum() / n;
-        double v2Mean = Arrays.stream(v2).sum() / n;
+        final double v1Mean = Arrays.stream(v1).sum() / n;
+        final double v2Mean = Arrays.stream(v2).sum() / n;
 
-        double[] v1Deviation = Arrays.stream(v1).map(x -> Math.abs(x - v1Mean)).toArray();
-        double[] v2Deviation = Arrays.stream(v2).map(x -> Math.abs(x - v2Mean)).toArray();
+        final double[] v1Deviation = Arrays.stream(v1).map(x -> Math.abs(x - v1Mean)).toArray();
+        final double[] v2Deviation = Arrays.stream(v2).map(x -> Math.abs(x - v2Mean)).toArray();
 
-        double covariance = IntStream.range(0, n).mapToDouble(i -> v1Deviation[i] * v2Deviation[i]).sum();
-        double v1Variance = Arrays.stream(v1).map(x -> x * x).sum();
-        double v2Variance = Arrays.stream(v1).map(x -> x * x).sum();
+        final double covariance = IntStream.range(0, n).mapToDouble(i -> v1Deviation[i] * v2Deviation[i]).sum();
+        final double v1Variance = Arrays.stream(v1).map(x -> x * x).sum();
+        final double v2Variance = Arrays.stream(v1).map(x -> x * x).sum();
 
         return covariance / (Math.sqrt(v1Variance) * Math.sqrt(v2Variance));
 
