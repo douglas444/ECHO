@@ -2,6 +2,7 @@ package br.com.douglas444.echo.core;
 
 import br.com.douglas444.echo.ClassificationResult;
 import br.com.douglas444.mltk.datastructure.Sample;
+import org.apache.commons.math3.distribution.BetaDistribution;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -14,9 +15,12 @@ public class ECHO {
     private List<Double> confidenceWindow;
     private List<Integer> knownLabels;
 
+    private double gamma;
+    private double sensitivity;
     private int filteredOutlierBufferMaxSize;
+    private int confidenceWindowsMaxSize;
 
-    public ECHO(int filteredOutlierBufferMaxSize) {
+    public ECHO(int filteredOutlierBufferMaxSize, int confidenceWindowsMaxSize, double gamma, double sensitivity) {
         this.warmed = false;
         this.ensemble = new ArrayList<>();
         this.filteredOutlierBuffer = new ArrayList<>();
@@ -24,6 +28,9 @@ public class ECHO {
         this.confidenceWindow = new ArrayList<>();
 
         this.filteredOutlierBufferMaxSize = filteredOutlierBufferMaxSize;
+        this.confidenceWindowsMaxSize = confidenceWindowsMaxSize;
+        this.gamma = gamma;
+        this.sensitivity = sensitivity;
     }
 
     public ClassificationResult process(final Sample sample) {
@@ -99,7 +106,60 @@ public class ECHO {
     }
 
     private Optional<Integer> changeDetection() {
-        return Optional.empty();
+
+        final int n = this.confidenceWindow.size();
+        final double meanConfidence = this.confidenceWindow.stream().reduce(0.0, Double::sum) / n;
+        final int cushion = Math.max(100, (int) Math.floor(Math.pow(n, this.gamma))) ;
+
+        if ((n > 2 * cushion && meanConfidence <= 0.3) || n >= this.confidenceWindowsMaxSize) {
+            return Optional.of(n);
+        }
+
+        double maxLLRS = 0; //LLRS stands for Log Likelihood Ratio Sum
+        int maxLLRSIndex = -1;
+
+        for (int i = cushion; i <= n - cushion; ++i) {
+
+            final BetaDistribution preBeta = estimateBetaDistribution(
+                    this.confidenceWindow.subList(0, i));
+
+            final BetaDistribution postBeta = estimateBetaDistribution(
+                    this.confidenceWindow.subList(i, n));
+
+            double lLRS = this.confidenceWindow.subList(i + 1, n)
+                    .stream()
+                    .map(x -> preBeta.density(x) / postBeta.density(x))
+                    .map(Math::log)
+                    .reduce(0.0, Double::sum);
+
+            if (lLRS > maxLLRS) {
+                maxLLRS = lLRS;
+                maxLLRSIndex = i;
+            }
+
+        }
+
+        if (maxLLRS > -Math.log(this.sensitivity) && maxLLRSIndex != -1) {
+            return Optional.of(maxLLRSIndex);
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    public static BetaDistribution estimateBetaDistribution(final List<Double> data) {
+
+        double mean = data.stream().reduce(0.0, Double::sum) / data.size();
+
+        double variance = data
+                .stream()
+                .map(value -> Math.abs(value - mean))
+                .map(value -> value * value)
+                .reduce(0.0, Double::sum) / data.size();
+
+        double alpha = ((Math.pow(mean, 2) - Math.pow(mean, 3)) / variance) - mean;
+        double beta = alpha * ((1 / mean) - 1);
+
+        return new BetaDistribution(alpha, beta);
     }
 
     private void novelClassDetection() {}
