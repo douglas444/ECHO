@@ -1,6 +1,5 @@
 package br.com.douglas444.echo.core;
 
-import br.com.douglas444.echo.ClassifiedSample;
 import br.com.douglas444.mltk.datastructure.Sample;
 import org.apache.commons.math3.distribution.BetaDistribution;
 

@@ -1,4 +1,4 @@
-package br.com.douglas444.echo;
+package br.com.douglas444.echo.core;
 
 import br.com.douglas444.mltk.datastructure.Sample;
 

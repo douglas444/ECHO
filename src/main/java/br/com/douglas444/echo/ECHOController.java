@@ -1,6 +1,7 @@
 package br.com.douglas444.echo;
 
 import br.com.douglas444.dsframework.DSClassifierController;
+import br.com.douglas444.echo.core.ClassifiedSample;
 import br.com.douglas444.echo.core.ECHO;
 import br.com.douglas444.mltk.datastructure.Sample;
 
