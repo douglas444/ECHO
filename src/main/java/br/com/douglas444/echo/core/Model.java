@@ -1,10 +1,12 @@
 package br.com.douglas444.echo.core;
 
-import br.com.douglas444.echo.ClassificationResult;
+import br.com.douglas444.echo.ClassifiedSample;
 import br.com.douglas444.mltk.datastructure.Sample;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 public class Model {
@@ -12,12 +14,27 @@ public class Model {
     private final List<PseudoPoint> pseudoPoints;
     private final double[] correlationVector;
 
-    public Model(List<PseudoPoint> pseudoPoints) {
+    private Model(List<PseudoPoint> pseudoPoints, double[] correlationVector) {
         this.pseudoPoints = pseudoPoints;
-        this.correlationVector = new double[]{0, 0};
+        this.correlationVector = correlationVector;
     }
 
-    public void train(final List<Sample> labeledSamples) {
+
+    public static Model fit(final List<Sample> samples, final List<ClassifiedSample> classifiedSamples) {
+
+        final List<Sample> labeledSamples = new ArrayList<>(samples);
+
+        classifiedSamples.stream()
+                .map(classifiedSample -> new Sample(classifiedSample.getSample().getX(), classifiedSample.getLabel()))
+                .forEach(labeledSamples::add);
+
+        return fit(labeledSamples);
+
+    }
+
+    public static Model fit(final List<Sample> labeledSamples) {
+
+        final List<PseudoPoint> pseudoPoints = new ArrayList<>();
 
         final double[] hits = new double[labeledSamples.size()];
         final double[] associationValues = new double[labeledSamples.size()];
@@ -26,10 +43,11 @@ public class Model {
         for (int i = 0; i < labeledSamples.size(); i++) {
 
             final Sample labeledSample = labeledSamples.get(i);
-            final PseudoPoint closestPseudoPoint = PseudoPoint.getClosestPseudoPoint(labeledSample, this.pseudoPoints);
+            final PseudoPoint closestPseudoPoint = PseudoPoint.getClosestPseudoPoint(labeledSample, pseudoPoints);
+            final double distance = closestPseudoPoint.getCentroid().distance(labeledSample);
 
-            final boolean hit = closestPseudoPoint.getCentroid()
-                    .distance(labeledSample) <= closestPseudoPoint.getRadius();
+            final boolean hit = distance <= closestPseudoPoint.getRadius()
+                    && labeledSample.getY() == closestPseudoPoint.getLabel();
 
             hits[i] = hit ? 1 : 0;
             associationValues[i] = calculateAssociation(labeledSample, closestPseudoPoint);
@@ -37,21 +55,29 @@ public class Model {
 
         }
 
-        this.correlationVector[0] = calculatePearsonCorrelationCoefficient(associationValues, hits);
-        this.correlationVector[1] = calculatePearsonCorrelationCoefficient(purityValues, hits);
+        final double[] correlationVector = new double[]{
+                calculatePearsonCorrelationCoefficient(associationValues, hits),
+                calculatePearsonCorrelationCoefficient(purityValues, hits)
+        };
+
+
+        return new Model(pseudoPoints, correlationVector);
 
     }
 
-    public ClassificationResult classify(final Sample sample) {
+    public Optional<ClassifiedSample> classify(final Sample sample) {
 
         final PseudoPoint closestPseudoPoint = PseudoPoint.getClosestPseudoPoint(sample, this.pseudoPoints);
         final double distance = closestPseudoPoint.getCentroid().distance(sample);
 
-        if (distance <= closestPseudoPoint.getRadius()) {
-            return new ClassificationResult(null, false, null);
+        if (distance > closestPseudoPoint.getRadius()) {
+            return Optional.empty();
         } else {
-            return new ClassificationResult(closestPseudoPoint.getLabel(), true,
+
+            ClassifiedSample classifiedSample = new ClassifiedSample(closestPseudoPoint.getLabel(), sample,
                     this.calculateConfidence(sample, closestPseudoPoint));
+
+            return Optional.of(classifiedSample);
         }
 
     }

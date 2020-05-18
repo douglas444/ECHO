@@ -1,6 +1,6 @@
 package br.com.douglas444.echo.core;
 
-import br.com.douglas444.echo.ClassificationResult;
+import br.com.douglas444.echo.ClassifiedSample;
 import br.com.douglas444.mltk.datastructure.Sample;
 import org.apache.commons.math3.distribution.BetaDistribution;
 
@@ -12,89 +12,85 @@ public class ECHO {
     private boolean warmed;
     private final List<Sample> filteredOutlierBuffer;
     private final List<Model> ensemble;
-    private final List<Double> confidenceWindow;
-    private final List<Integer> knownLabels;
+    private final List<ClassifiedSample> window;
 
     private double gamma;
     private double sensitivity;
+    private double confidenceThreshold;
     private int filteredOutlierBufferMaxSize;
     private int confidenceWindowsMaxSize;
 
-    public ECHO(int filteredOutlierBufferMaxSize, int confidenceWindowsMaxSize, double gamma, double sensitivity) {
+    public ECHO(int filteredOutlierBufferMaxSize, int confidenceWindowsMaxSize, double gamma, double sensitivity,
+                double confidenceThreshold) {
         this.warmed = false;
         this.ensemble = new ArrayList<>();
         this.filteredOutlierBuffer = new ArrayList<>();
-        this.knownLabels = new ArrayList<>();
-        this.confidenceWindow = new ArrayList<>();
+
+        this.window = new ArrayList<>();
 
         this.filteredOutlierBufferMaxSize = filteredOutlierBufferMaxSize;
         this.confidenceWindowsMaxSize = confidenceWindowsMaxSize;
         this.gamma = gamma;
         this.sensitivity = sensitivity;
+        this.confidenceThreshold = confidenceThreshold;
     }
 
-    public ClassificationResult process(final Sample sample) {
+    public Optional<Integer> process(final Sample sample) {
 
         if (!this.warmed) {
             this.warmUp(sample);
-            return new ClassificationResult(null, false, null);
+            return Optional.empty();
         }
 
-        final ClassificationResult classificationResult = this.classify(sample);
+        final Optional<ClassifiedSample> classificationSampleOptional = this.classify(sample);
 
-        classificationResult.ifInsideBoundaryOrElse((label, confidence) -> {
+        if (classificationSampleOptional.isPresent()) {
 
-            this.confidenceWindow.add(confidence);
+            this.window.add(classificationSampleOptional.get());
             final Optional<Integer> changePoint = this.changeDetection();
             changePoint.ifPresent(this::updateClassifier);
+            return Optional.of(classificationSampleOptional.get().getLabel());
 
-        }, () -> {
+        } else {
 
             this.filteredOutlierBuffer.add(sample);
             if (this.filteredOutlierBuffer.size() >= this.filteredOutlierBufferMaxSize) {
                 this.novelClassDetection();
             }
+            return  Optional.empty();
 
-        });
-
-        return classificationResult;
+        }
 
     }
 
-    private ClassificationResult classify(final Sample sample) {
+    private Optional<ClassifiedSample> classify(final Sample sample) {
 
-        final List<ClassificationResult> classificationResults = this.ensemble.stream()
+        final List<ClassifiedSample> classifiedSamples = this.ensemble.stream()
                 .map(model -> model.classify(sample))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        double ensembleConfidence = calculateConfidence(classificationResults);
+        double ensembleConfidence = calculateConfidence(classifiedSamples);
 
         final HashMap<Integer, Integer> votesByLabel = new HashMap<>();
-        classificationResults.forEach(classificationResult -> {
-
-            classificationResult.ifInsideBoundary((label, modelConfidence) -> {
-                votesByLabel.putIfAbsent(label, 0);
-                Integer votes = votesByLabel.get(label);
-                votesByLabel.put(label, votes + 1);
-            });
-
+        classifiedSamples.forEach(classifiedSample -> {
+            votesByLabel.putIfAbsent(classifiedSample.getLabel(), 0);
+            Integer votes = votesByLabel.get(classifiedSample.getLabel());
+            votesByLabel.put(classifiedSample.getLabel(), votes + 1);
         });
 
         return votesByLabel
                 .entrySet()
                 .stream()
                 .max(Map.Entry.comparingByValue())
-                .map(entry -> new ClassificationResult(entry.getKey(), true, ensembleConfidence))
-                .orElseGet(() -> new ClassificationResult(null, false, 0.0));
+                .map(entry -> new ClassifiedSample(entry.getKey(), sample, ensembleConfidence));
 
     }
 
-    private static double calculateConfidence(List<ClassificationResult> classificationResults) {
+    private static double calculateConfidence(List<ClassifiedSample> classifiedSamples) {
 
-        final List<Double> confidenceValues = classificationResults
-                .stream()
-                .map(ClassificationResult::getConfidence)
-                .collect(Collectors.toCollection(ArrayList::new));
+        final List<Double> confidenceValues = getConfidenceList(classifiedSamples);
 
         final Double maxConfidence = confidenceValues.stream().max(Double::compareTo).orElse(1.0);
 
@@ -107,8 +103,8 @@ public class ECHO {
 
     private Optional<Integer> changeDetection() {
 
-        final int n = this.confidenceWindow.size();
-        final double meanConfidence = this.confidenceWindow.stream().reduce(0.0, Double::sum) / n;
+        final int n = this.window.size();
+        final double meanConfidence = getConfidenceList(this.window).stream().reduce(0.0, Double::sum) / n;
         final int cushion = Math.max(100, (int) Math.floor(Math.pow(n, this.gamma)));
 
         if ((n > 2 * cushion && meanConfidence <= 0.3) || n > this.confidenceWindowsMaxSize) {
@@ -122,12 +118,12 @@ public class ECHO {
         for (int i = cushion; i <= n - cushion; ++i) {
 
             final BetaDistribution preBeta = estimateBetaDistribution(
-                    this.confidenceWindow.subList(0, i));
+                    getConfidenceList(this.window).subList(0, i));
 
             final BetaDistribution postBeta = estimateBetaDistribution(
-                    this.confidenceWindow.subList(i, n));
+                    getConfidenceList(this.window).subList(i, n));
 
-            final double lLRS = this.confidenceWindow.subList(i + 1, n)
+            final double lLRS = getConfidenceList(this.window).subList(i + 1, n)
                     .stream()
                     .map(x -> preBeta.density(x) / postBeta.density(x))
                     .map(Math::log)
@@ -169,10 +165,34 @@ public class ECHO {
 
     private void novelClassDetection() {}
 
-    private void updateClassifier(int changePoint) {}
+    private void updateClassifier(int changePoint) {
+
+        final List<Sample> labeledSamples = new ArrayList<>();
+        final List<ClassifiedSample> classifiedSamples = new ArrayList<>();
+
+        this.window.stream()
+                .filter(classifiedSample -> classifiedSample.getConfidence() > this.confidenceThreshold)
+                .forEach(classifiedSamples::add);
+
+        this.window.stream()
+                .filter(classifiedSample -> classifiedSample.getConfidence() <= this.confidenceThreshold)
+                .map(ClassifiedSample::getSample)
+                .forEach(labeledSamples::add);
+
+        final Model model = Model.fit(labeledSamples, classifiedSamples);
+        this.ensemble.remove(0);
+        this.ensemble.add(model);
+        this.window.removeAll(this.window.subList(0, changePoint));
+
+    }
 
     private void warmUp(final Sample sample) {
         this.warmed = true;
     }
 
+    private static List<Double> getConfidenceList(List<ClassifiedSample> classifiedSamples) {
+        return classifiedSamples.stream()
+                .map(ClassifiedSample::getConfidence)
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
 }

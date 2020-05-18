@@ -15,8 +15,8 @@ public class ECHOController implements DSClassifierController {
     }
 
     public Optional<Integer> predictAndUpdate(Sample sample) {
-        ClassificationResult classificationResult = this.echo.process(sample);
-        return classificationResult.getLabel();
+        ClassifiedSample classifiedSample = this.echo.process(sample);
+        return classifiedSample.getLabel();
     }
 
     public String getLog() {
