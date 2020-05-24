@@ -18,9 +18,10 @@ public class ECHO {
     private double confidenceThreshold;
     private int filteredOutlierBufferMaxSize;
     private int confidenceWindowsMaxSize;
+    private int chunkSize;
 
     public ECHO(int filteredOutlierBufferMaxSize, int confidenceWindowsMaxSize, double gamma, double sensitivity,
-                double confidenceThreshold) {
+                double confidenceThreshold, int chunkSize) {
         this.warmed = false;
         this.ensemble = new ArrayList<>();
         this.filteredOutlierBuffer = new ArrayList<>();
@@ -32,6 +33,7 @@ public class ECHO {
         this.gamma = gamma;
         this.sensitivity = sensitivity;
         this.confidenceThreshold = confidenceThreshold;
+        this.chunkSize = chunkSize;
     }
 
     public Optional<Integer> process(final Sample sample) {
