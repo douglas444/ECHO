@@ -12,7 +12,6 @@ class PseudoPoint {
 
     private Sample centroid;
     private double radius;
-    private HashMap<Integer, Integer> numberOfSamplesByLabel;
     private int totalNumberOfSamples;
     private int numberOfSampleForMostFrequentLabel;
     private Integer label;
@@ -23,15 +22,7 @@ class PseudoPoint {
         this.radius = cluster.calculateRadius();
         this.totalNumberOfSamples = cluster.getNumberOfLabeledSamples();
         this.label = cluster.getMostFrequentLabel();
-
-        this.numberOfSamplesByLabel = new HashMap<>();
-
-        cluster.getSamplesByLabel().forEach((label, samples) -> {
-            this.numberOfSamplesByLabel.put(label, samples.size());
-            if (label.equals(this.label)) {
-                this.numberOfSampleForMostFrequentLabel = samples.size();
-            }
-        });
+        this.numberOfSampleForMostFrequentLabel = cluster.getSamplesByLabel().get(this.label).size();
 
     }
 
@@ -71,14 +62,5 @@ class PseudoPoint {
     double getRadius() {
         return radius;
     }
-
-    int getTotalNumberOfSamples() {
-        return totalNumberOfSamples;
-    }
-
-    int getNumberOfSampleForMostFrequentLabel() {
-        return numberOfSampleForMostFrequentLabel;
-    }
-
 
 }

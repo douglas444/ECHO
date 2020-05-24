@@ -33,4 +33,7 @@ class Heater {
         return this.ensemble;
     }
 
+    int getEnsembleSize() {
+        return this.ensemble.size();
+    }
 }

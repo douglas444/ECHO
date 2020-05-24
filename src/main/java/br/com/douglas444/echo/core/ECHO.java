@@ -8,27 +8,26 @@ import java.util.stream.Collectors;
 
 public class ECHO {
 
+    private int timestamp;
+
     private boolean warmed;
     private final List<Sample> filteredOutlierBuffer;
     private final List<Model> ensemble;
     private final List<ClassifiedSample> window;
+    private final Heater heater;
 
-    private int k;
-    private int seed;
-    private double gamma;
-    private double sensitivity;
-    private double confidenceThreshold;
-    private int filteredOutlierBufferMaxSize;
-    private int confidenceWindowsMaxSize;
-    private int chunkSize;
+    private final int k;
+    private final int seed;
+    private final double gamma;
+    private final double sensitivity;
+    private final double confidenceThreshold;
+    private final int filteredOutlierBufferMaxSize;
+    private final int confidenceWindowsMaxSize;
+    private final int chunkSize;
+    private final int ensembleSize;
 
     public ECHO(int filteredOutlierBufferMaxSize, int confidenceWindowsMaxSize, double gamma, double sensitivity,
-                double confidenceThreshold, int chunkSize, int k, int seed) {
-        this.warmed = false;
-        this.ensemble = new ArrayList<>();
-        this.filteredOutlierBuffer = new ArrayList<>();
-
-        this.window = new ArrayList<>();
+                double confidenceThreshold, int chunkSize, int ensembleSize, int k, int seed) {
 
         this.filteredOutlierBufferMaxSize = filteredOutlierBufferMaxSize;
         this.confidenceWindowsMaxSize = confidenceWindowsMaxSize;
@@ -38,9 +37,19 @@ public class ECHO {
         this.chunkSize = chunkSize;
         this.k = k;
         this.seed = seed;
+        this.ensembleSize = ensembleSize;
+
+        this.warmed = false;
+        this.timestamp = 0;
+        this.ensemble = new ArrayList<>();
+        this.filteredOutlierBuffer = new ArrayList<>();
+        this.window = new ArrayList<>();
+        this.heater = new Heater(this.chunkSize, this.k, this.seed);
     }
 
     public Optional<Integer> process(final Sample sample) {
+
+        sample.setT(this.timestamp++);
 
         if (!this.warmed) {
             this.warmUp(sample);
@@ -192,7 +201,16 @@ public class ECHO {
     }
 
     private void warmUp(final Sample sample) {
-        this.warmed = true;
+
+        assert !warmed;
+
+        if (this.heater.getEnsembleSize() < this.ensembleSize) {
+            this.heater.process(sample);
+        } else {
+            this.warmed = true;
+            this.ensemble.addAll(this.heater.getResult());
+        }
+
     }
 
     private static List<Double> getConfidenceList(List<ClassifiedSample> classifiedSamples) {
