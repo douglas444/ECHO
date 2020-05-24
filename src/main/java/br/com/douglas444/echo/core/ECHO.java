@@ -41,14 +41,14 @@ public class ECHO {
             return Optional.empty();
         }
 
-        final Optional<ClassifiedSample> classificationSampleOptional = this.classify(sample);
+        final Optional<ClassifiedSample> classifiedSample = this.classify(sample);
 
-        if (classificationSampleOptional.isPresent()) {
+        if (classifiedSample.isPresent()) {
 
-            this.window.add(classificationSampleOptional.get());
+            this.window.add(classifiedSample.get());
             final Optional<Integer> changePoint = this.changeDetection();
             changePoint.ifPresent(this::updateClassifier);
-            return Optional.of(classificationSampleOptional.get().getLabel());
+            return Optional.of(classifiedSample.get().getLabel());
 
         } else {
 
@@ -146,7 +146,7 @@ public class ECHO {
         return Optional.empty();
     }
 
-    public static BetaDistribution estimateBetaDistribution(final List<Double> data) {
+    private static BetaDistribution estimateBetaDistribution(final List<Double> data) {
 
         final double mean = data.stream().reduce(0.0, Double::sum) / data.size();
 
