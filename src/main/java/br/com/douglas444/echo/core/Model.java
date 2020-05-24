@@ -1,11 +1,13 @@
 package br.com.douglas444.echo.core;
 
+import br.com.douglas444.mltk.clustering.kmeans.MCIKMeans;
 import br.com.douglas444.mltk.datastructure.Sample;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class Model {
@@ -19,7 +21,8 @@ public class Model {
     }
 
 
-    public static Model fit(final List<Sample> samples, final List<ClassifiedSample> classifiedSamples) {
+    public static Model fit(final List<Sample> samples, final List<ClassifiedSample> classifiedSamples, int k,
+                            long seed) {
 
         final List<Sample> labeledSamples = new ArrayList<>(samples);
 
@@ -27,13 +30,17 @@ public class Model {
                 .map(classifiedSample -> new Sample(classifiedSample.getSample().getX(), classifiedSample.getLabel()))
                 .forEach(labeledSamples::add);
 
-        return fit(labeledSamples);
+        return fit(labeledSamples, k, seed);
 
     }
 
-    public static Model fit(final List<Sample> labeledSamples) {
+    public static Model fit(final List<Sample> labeledSamples, int k, long seed) {
 
-        final List<PseudoPoint> pseudoPoints = new ArrayList<>();
+        final List<PseudoPoint> pseudoPoints = MCIKMeans
+                .execute(labeledSamples, new ArrayList<>(), k, seed)
+                .stream()
+                .map(PseudoPoint::new)
+                .collect(Collectors.toCollection(ArrayList::new));
 
         final double[] hits = new double[labeledSamples.size()];
         final double[] associationValues = new double[labeledSamples.size()];

@@ -7,12 +7,14 @@ import java.util.List;
 
 public class Heater {
 
+    private int k;
+    private long seed;
     private List<Sample> chunk;
     private List<Model> ensemble;
     private int chunkSize;
 
 
-    public Heater(int chunkSize) {
+    public Heater(int chunkSize, int k, long seed) {
         this.chunk = new ArrayList<>();
         this.ensemble = new ArrayList<>();
         this.chunkSize = chunkSize;
@@ -23,7 +25,7 @@ public class Heater {
 
         this.chunk.add(sample);
         if (this.chunk.size() >= this.chunkSize) {
-            this.ensemble.add(Model.fit(this.chunk));
+            this.ensemble.add(Model.fit(this.chunk, this.k, this.seed));
             this.chunk.clear();
         }
 

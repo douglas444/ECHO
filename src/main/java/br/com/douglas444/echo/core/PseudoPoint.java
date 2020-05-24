@@ -1,5 +1,6 @@
 package br.com.douglas444.echo.core;
 
+import br.com.douglas444.mltk.datastructure.ImpurityBasedCluster;
 import br.com.douglas444.mltk.datastructure.Sample;
 import br.com.douglas444.mltk.util.SampleDistanceComparator;
 
@@ -16,6 +17,23 @@ public class PseudoPoint {
     private int numberOfSampleForMostFrequentLabel;
     private Integer label;
 
+    public PseudoPoint(ImpurityBasedCluster cluster) {
+
+        this.centroid = cluster.getCentroid();
+        this.radius = cluster.calculateRadius();
+        this.totalNumberOfSamples = cluster.getNumberOfLabeledSamples();
+        this.label = cluster.getMostFrequentLabel();
+
+        this.numberOfSamplesByLabel = new HashMap<>();
+
+        cluster.getSamplesByLabel().forEach((label, samples) -> {
+            this.numberOfSamplesByLabel.put(label, samples.size());
+            if (label.equals(this.label)) {
+                this.numberOfSampleForMostFrequentLabel = samples.size();
+            }
+        });
+
+    }
 
     public static PseudoPoint getClosestPseudoPoint(final Sample sample, final List<PseudoPoint> pseudoPoints) {
 
