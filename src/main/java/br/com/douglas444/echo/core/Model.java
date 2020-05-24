@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class Model {
+class Model {
 
     private final List<PseudoPoint> pseudoPoints;
     private final double[] correlationVector;
@@ -21,7 +21,7 @@ public class Model {
     }
 
 
-    public static Model fit(final List<Sample> samples, final List<ClassifiedSample> classifiedSamples, int k,
+    static Model fit(final List<Sample> samples, final List<ClassifiedSample> classifiedSamples, int k,
                             long seed) {
 
         final List<Sample> labeledSamples = new ArrayList<>(samples);
@@ -34,7 +34,7 @@ public class Model {
 
     }
 
-    public static Model fit(final List<Sample> labeledSamples, int k, long seed) {
+    static Model fit(final List<Sample> labeledSamples, int k, long seed) {
 
         final List<PseudoPoint> pseudoPoints = MCIKMeans
                 .execute(labeledSamples, new ArrayList<>(), k, seed)
@@ -71,7 +71,7 @@ public class Model {
 
     }
 
-    public Optional<ClassifiedSample> classify(final Sample sample) {
+    Optional<ClassifiedSample> classify(final Sample sample) {
 
         final PseudoPoint closestPseudoPoint = PseudoPoint.getClosestPseudoPoint(sample, this.pseudoPoints);
         final double distance = closestPseudoPoint.getCentroid().distance(sample);

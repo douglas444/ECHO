@@ -5,7 +5,7 @@ import br.com.douglas444.mltk.datastructure.Sample;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Heater {
+class Heater {
 
     private int k;
     private long seed;
@@ -13,15 +13,13 @@ public class Heater {
     private List<Model> ensemble;
     private int chunkSize;
 
-
-    public Heater(int chunkSize, int k, long seed) {
+    Heater(int chunkSize, int k, long seed) {
         this.chunk = new ArrayList<>();
         this.ensemble = new ArrayList<>();
         this.chunkSize = chunkSize;
     }
 
-
-    public void process(final Sample sample) {
+    void process(final Sample sample) {
 
         this.chunk.add(sample);
         if (this.chunk.size() >= this.chunkSize) {
@@ -31,10 +29,8 @@ public class Heater {
 
     }
 
-    public List<Model> getResult() {
+    List<Model> getResult() {
         return this.ensemble;
     }
-
-
 
 }

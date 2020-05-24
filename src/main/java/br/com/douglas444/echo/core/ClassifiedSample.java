@@ -2,13 +2,13 @@ package br.com.douglas444.echo.core;
 
 import br.com.douglas444.mltk.datastructure.Sample;
 
-public class ClassifiedSample {
+class ClassifiedSample {
 
     private final int label;
     private final double confidence;
     private final Sample sample;
 
-    public ClassifiedSample(int label, Sample sample, double confidence) {
+    ClassifiedSample(int label, Sample sample, double confidence) {
 
         this.sample = sample;
         this.label = label;
@@ -16,15 +16,15 @@ public class ClassifiedSample {
     }
 
 
-    public int getLabel() {
+    int getLabel() {
         return label;
     }
 
-    public double getConfidence() {
+    double getConfidence() {
         return confidence;
     }
 
-    public Sample getSample() {
+    Sample getSample() {
         return sample;
     }
 }

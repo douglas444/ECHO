@@ -13,6 +13,8 @@ public class ECHO {
     private final List<Model> ensemble;
     private final List<ClassifiedSample> window;
 
+    private int k;
+    private int seed;
     private double gamma;
     private double sensitivity;
     private double confidenceThreshold;
@@ -21,7 +23,7 @@ public class ECHO {
     private int chunkSize;
 
     public ECHO(int filteredOutlierBufferMaxSize, int confidenceWindowsMaxSize, double gamma, double sensitivity,
-                double confidenceThreshold, int chunkSize) {
+                double confidenceThreshold, int chunkSize, int k, int seed) {
         this.warmed = false;
         this.ensemble = new ArrayList<>();
         this.filteredOutlierBuffer = new ArrayList<>();
@@ -34,6 +36,8 @@ public class ECHO {
         this.sensitivity = sensitivity;
         this.confidenceThreshold = confidenceThreshold;
         this.chunkSize = chunkSize;
+        this.k = k;
+        this.seed = seed;
     }
 
     public Optional<Integer> process(final Sample sample) {
@@ -180,7 +184,7 @@ public class ECHO {
                 .map(ClassifiedSample::getSample)
                 .forEach(labeledSamples::add);
 
-        final Model model = Model.fit(labeledSamples, classifiedSamples);
+        final Model model = Model.fit(labeledSamples, classifiedSamples, this.k, this.seed);
         this.ensemble.remove(0);
         this.ensemble.add(model);
         this.window.removeAll(this.window.subList(0, changePoint));

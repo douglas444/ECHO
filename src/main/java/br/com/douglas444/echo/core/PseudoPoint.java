@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class PseudoPoint {
+class PseudoPoint {
 
     private Sample centroid;
     private double radius;
@@ -17,7 +17,7 @@ public class PseudoPoint {
     private int numberOfSampleForMostFrequentLabel;
     private Integer label;
 
-    public PseudoPoint(ImpurityBasedCluster cluster) {
+    PseudoPoint(ImpurityBasedCluster cluster) {
 
         this.centroid = cluster.getCentroid();
         this.radius = cluster.calculateRadius();
@@ -35,7 +35,7 @@ public class PseudoPoint {
 
     }
 
-    public static PseudoPoint getClosestPseudoPoint(final Sample sample, final List<PseudoPoint> pseudoPoints) {
+    static PseudoPoint getClosestPseudoPoint(final Sample sample, final List<PseudoPoint> pseudoPoints) {
 
         if (pseudoPoints.isEmpty()) {
             throw new IllegalArgumentException();
@@ -56,27 +56,27 @@ public class PseudoPoint {
         return pseudoPointByCentroid.get(closestCentroid);
     }
 
-    public double calculatePurity() {
+    double calculatePurity() {
         return (double) this.numberOfSampleForMostFrequentLabel / this.totalNumberOfSamples;
     }
 
-    public Sample getCentroid() {
+    Sample getCentroid() {
         return centroid;
     }
 
-    public Integer getLabel() {
+    Integer getLabel() {
         return label;
     }
 
-    public double getRadius() {
+    double getRadius() {
         return radius;
     }
 
-    public int getTotalNumberOfSamples() {
+    int getTotalNumberOfSamples() {
         return totalNumberOfSamples;
     }
 
-    public int getNumberOfSampleForMostFrequentLabel() {
+    int getNumberOfSampleForMostFrequentLabel() {
         return numberOfSampleForMostFrequentLabel;
     }
 

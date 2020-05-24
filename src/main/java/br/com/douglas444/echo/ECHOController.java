@@ -1,7 +1,6 @@
 package br.com.douglas444.echo;
 
 import br.com.douglas444.dsframework.DSClassifierController;
-import br.com.douglas444.echo.core.ClassifiedSample;
 import br.com.douglas444.echo.core.ECHO;
 import br.com.douglas444.mltk.datastructure.Sample;
 
@@ -16,8 +15,7 @@ public class ECHOController implements DSClassifierController {
     }
 
     public Optional<Integer> predictAndUpdate(Sample sample) {
-        ClassifiedSample classifiedSample = this.echo.process(sample);
-        return classifiedSample.getLabel();
+        return this.echo.process(sample);
     }
 
     public String getLog() {
