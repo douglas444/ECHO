@@ -59,6 +59,7 @@ public class ECHO {
 
     public Optional<Integer> process(final Sample sample) {
 
+
         sample.setT(this.timestamp++);
 
         if (!this.warmed) {
@@ -73,16 +74,26 @@ public class ECHO {
             this.window.add(classifiedSample.get());
             final Optional<Integer> changePoint = this.changeDetection();
             changePoint.ifPresent(this::updateClassifier);
+            System.out.println("Timestamp: " + this.timestamp
+                    + " Window size: " + this.window.size()
+                    + " Confidence: " + classifiedSample.get().getConfidence()
+                    + " Label: " + sample.getY()
+                    + " Predicted as: " + classifiedSample.get().getLabel());
             return Optional.of(classifiedSample.get().getLabel());
 
         } else {
 
-            if (this.filteredOutlierBuffer.size() < this.filteredOutlierBufferMaxSize) {
+            if (this.filteredOutlierBuffer.size() < this.filteredOutlierBufferMaxSize - 1) {
+
                 this.filteredOutlierBuffer.add(sample);
-            } else {
+
+            } else if (this.filteredOutlierBuffer.size() == this.filteredOutlierBufferMaxSize - 1) {
+
                 this.filteredOutlierBuffer.add(sample);
                 this.novelClassDetection();
+
             }
+
             return  Optional.empty();
 
         }
@@ -119,6 +130,10 @@ public class ECHO {
 
         final Double maxConfidence = confidenceValues.stream().max(Double::compareTo).orElse(1.0);
 
+        if (maxConfidence == 0) {
+            return 0;
+        }
+
         return confidenceValues
                 .stream()
                 .map(confidenceValue -> confidenceValue / maxConfidence)
@@ -135,7 +150,6 @@ public class ECHO {
         if ((n > 2 * cushion && meanConfidence <= 0.3) || n > this.confidenceWindowMaxSize) {
             return Optional.of(n);
         }
-
 
         double maxLLRS = 0; //LLRS stands for Log Likelihood Ratio Sum
         int maxLLRSIndex = -1;

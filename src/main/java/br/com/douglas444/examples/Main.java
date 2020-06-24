@@ -18,7 +18,7 @@ public class Main {
     private static final double SENSITIVITY = 0.001;
     private static final double CONFIDENCE_THRESHOLD = 0.90;
     private static final int FILTERED_OUTLIER_BUFFER_MAX_SIZE = 0;
-    private static final int CONFIDENCE_WINDOW_MAX_SIZE = 3000;
+    private static final int CONFIDENCE_WINDOW_MAX_SIZE = 1000;
     private static final int ENSEMBLE_SIZE = 6;
     private static final int RANDOM_GENERATOR_SEED = 0;
     private static final int CHUNK_SIZE = 2000;

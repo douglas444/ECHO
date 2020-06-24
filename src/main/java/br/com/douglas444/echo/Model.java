@@ -119,8 +119,13 @@ class Model {
         final double[] v2Deviation = Arrays.stream(v2).map(x -> Math.abs(x - v2Mean)).toArray();
 
         final double covariance = IntStream.range(0, n).mapToDouble(i -> v1Deviation[i] * v2Deviation[i]).sum();
-        final double v1Variance = Arrays.stream(v1).map(x -> x * x).sum();
-        final double v2Variance = Arrays.stream(v1).map(x -> x * x).sum();
+
+        if (covariance == 0) {
+            return 0;
+        }
+
+        final double v1Variance = Arrays.stream(v1Deviation).map(x -> x * x).sum();
+        final double v2Variance = Arrays.stream(v2Deviation).map(x -> x * x).sum();
 
         return covariance / (Math.sqrt(v1Variance) * Math.sqrt(v2Variance));
 
