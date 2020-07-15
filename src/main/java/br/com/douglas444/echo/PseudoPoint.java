@@ -18,6 +18,8 @@ class PseudoPoint {
 
     PseudoPoint(ImpurityBasedCluster cluster) {
 
+        cluster.getSamples().forEach(sample -> sample.setClusterId(null));
+
         this.centroid = cluster.getCentroid();
         this.radius = cluster.calculateRadius();
         this.totalNumberOfSamples = cluster.getNumberOfLabeledSamples();

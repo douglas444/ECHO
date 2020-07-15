@@ -1,5 +1,6 @@
 package br.com.douglas444.echo;
 
+import br.com.douglas444.mltk.datastructure.DynamicConfusionMatrix;
 import br.com.douglas444.mltk.datastructure.Sample;
 import br.com.douglas444.mltk.util.SampleDistanceComparator;
 import org.apache.commons.math3.distribution.BetaDistribution;
@@ -7,16 +8,18 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static br.com.douglas444.echo.ClassificationResult.getConfidenceList;
+
 public class ECHO {
 
     private int timestamp;
     private boolean warmed;
+    private int numberOfLabeledSamples;
 
     private final List<Sample> filteredOutlierBuffer;
     private final List<Model> ensemble;
-    private final List<ClassifiedSample> window;
+    private final List<ClassificationResult> window;
     private final Heater heater;
-
     private final int q;
     private final int k;
     private final double gamma;
@@ -25,7 +28,8 @@ public class ECHO {
     private final int filteredOutlierBufferMaxSize;
     private final int confidenceWindowMaxSize;
     private final int ensembleSize;
-    private final long randomGeneratorSeed;
+    private final Random random;
+    private final DynamicConfusionMatrix confusionMatrix;
 
     public ECHO(int q,
                 int k,
@@ -46,98 +50,134 @@ public class ECHO {
         this.filteredOutlierBufferMaxSize = filteredOutlierBufferMaxSize;
         this.confidenceWindowMaxSize = confidenceWindowMaxSize;
         this.ensembleSize = ensembleSize;
-        this.randomGeneratorSeed = randomGeneratorSeed;
+        this.random = new Random(randomGeneratorSeed);
 
         this.timestamp = 1;
         this.warmed = false;
+        this.numberOfLabeledSamples = 0;
 
         this.filteredOutlierBuffer = new ArrayList<>();
         this.ensemble = new ArrayList<>();
         this.window = new ArrayList<>();
-        this.heater = new Heater(chunkSize, this.k, this.randomGeneratorSeed);
+        this.heater = new Heater(chunkSize, this.k, this.random);
+
+        this.confusionMatrix = new DynamicConfusionMatrix();
+
     }
 
-    public Optional<Integer> process(final Sample sample) {
-
-
-        sample.setT(this.timestamp++);
+    public ClassificationResult process(final Sample sample) {
 
         if (!this.warmed) {
             this.warmUp(sample);
-            return Optional.empty();
+            return new ClassificationResult(null, sample, 0.0, false);
         }
 
-        final Optional<ClassifiedSample> classifiedSample = this.classify(sample);
+        sample.setT(this.timestamp);
 
-        if (classifiedSample.isPresent()) {
+        final ClassificationResult classificationResult = this.classify(sample);
 
-            this.window.add(classifiedSample.get());
-            final Optional<Integer> changePoint = this.changeDetection();
-            changePoint.ifPresent(this::updateClassifier);
-            System.out.println("Timestamp: " + this.timestamp
-                    + " Window size: " + this.window.size()
-                    + " Confidence: " + classifiedSample.get().getConfidence()
-                    + " Label: " + sample.getY()
-                    + " Predicted as: " + classifiedSample.get().getLabel());
-            return Optional.of(classifiedSample.get().getLabel());
+        classificationResult.ifExplainedOrElse((label, confidence) -> {
 
-        } else {
+            this.window.add(classificationResult);
+            this.confusionMatrix.addPrediction(sample.getY(), label, false);
 
-            if (this.filteredOutlierBuffer.size() < this.filteredOutlierBufferMaxSize - 1) {
-
-                this.filteredOutlierBuffer.add(sample);
-
-            } else if (this.filteredOutlierBuffer.size() == this.filteredOutlierBufferMaxSize - 1) {
-
-                this.filteredOutlierBuffer.add(sample);
-                this.novelClassDetection();
-
+            if (confidence < this.confidenceThreshold) {
+                this.changeDetection().ifPresent(this::updateClassifier);
+            } else if (this.window.size() == this.confidenceWindowMaxSize) {
+                this.window.remove(0);
             }
 
-            return  Optional.empty();
+        }, () -> {
 
-        }
-    }
+            this.filteredOutlierBuffer.add(sample);
+            this.confusionMatrix.addUnknown(sample.getY());
+            if (this.filteredOutlierBuffer.size() == this.filteredOutlierBufferMaxSize) {
+                this.novelClassDetection();
+            }
 
-    private Optional<ClassifiedSample> classify(final Sample sample) {
-
-        final List<ClassifiedSample> classifications = this.ensemble.stream()
-                .map(model -> model.classify(sample))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        double ensembleConfidence = calculateConfidence(classifications);
-
-        final HashMap<Integer, Integer> votesByLabel = new HashMap<>();
-        classifications.forEach(classifiedSample -> {
-            votesByLabel.putIfAbsent(classifiedSample.getLabel(), 0);
-            Integer votes = votesByLabel.get(classifiedSample.getLabel());
-            votesByLabel.put(classifiedSample.getLabel(), votes + 1);
         });
 
-        return votesByLabel
-                .entrySet()
-                .stream()
-                .max(Map.Entry.comparingByValue())
-                .map(entry -> new ClassifiedSample(entry.getKey(), sample, ensembleConfidence));
+        ++this.timestamp;
+
+        return classificationResult;
+    }
+
+    private ClassificationResult classify(final Sample sample) {
+
+        final List<ClassificationResult> classifications = this.ensemble.stream()
+                .map(model -> model.classify(sample))
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        final HashMap<Integer, Integer> votesByLabel = new HashMap<>();
+
+        boolean isOutlier = true;
+
+        for (ClassificationResult classification : classifications) {
+
+            if (classification.isExplained()) {
+                isOutlier = false;
+            }
+
+            classification.ifExplained((label, confidence) -> {
+                votesByLabel.putIfAbsent(label, 0);
+                Integer votes = votesByLabel.get(label);
+                votesByLabel.put(label, votes + 1);
+            });
+
+        }
+
+        assert !votesByLabel.isEmpty();
+
+        final Integer votedLabel;
+        final double ensembleConfidence;
+
+        if (isOutlier) {
+            votedLabel = null;
+            ensembleConfidence = 0;
+        } else {
+            votedLabel = Collections.max(votesByLabel.entrySet(), Map.Entry.comparingByValue()).getKey();
+            ensembleConfidence = calculateConfidence(votedLabel, classifications);
+        }
+
+        return new ClassificationResult(votedLabel, sample, ensembleConfidence, !isOutlier);
 
     }
 
-    private static double calculateConfidence(List<ClassifiedSample> classifiedSamples) {
+    private static double calculateConfidence(final Integer votedLabel,
+                                              final List<ClassificationResult> classificationResults) {
 
-        final List<Double> confidenceValues = getConfidenceList(classifiedSamples);
+        final Double maxConfidence = getConfidenceList(classificationResults)
+                .stream()
+                .max(Double::compareTo)
+                .orElse(0.0);
 
-        final Double maxConfidence = confidenceValues.stream().max(Double::compareTo).orElse(1.0);
+        final Double minConfidence = getConfidenceList(classificationResults)
+                .stream()
+                .min(Double::compareTo)
+                .orElse(0.0);
 
-        if (maxConfidence == 0) {
-            return 0;
-        }
+        final List<ClassificationResult> classificationResultsForVotedClass = classificationResults
+                .stream()
+                .filter(classificationResult ->
+                    classificationResult
+                            .getLabel()
+                            .map(integer -> integer.equals(votedLabel))
+                            .orElse(false))
+                .collect(Collectors.toList());
+
+        final List<Double> confidenceValues = getConfidenceList(classificationResultsForVotedClass);
 
         return confidenceValues
                 .stream()
-                .map(confidenceValue -> confidenceValue / maxConfidence)
-                .reduce(0.0, Double::sum) / confidenceValues.size();
+                .map(confidenceValue -> {
+                    if (minConfidence.equals(maxConfidence)) {
+                        return confidenceValue;
+                    } else {
+                        return (confidenceValue - minConfidence) / (maxConfidence - minConfidence);
+                    }
+                })
+                .reduce(0.0, Double::sum) / classificationResults.size();
+
 
     }
 
@@ -147,7 +187,7 @@ public class ECHO {
         final double meanConfidence = getConfidenceList(this.window).stream().reduce(0.0, Double::sum) / n;
         final int cushion = Math.max(100, (int) Math.floor(Math.pow(n, this.gamma)));
 
-        if ((n > 2 * cushion && meanConfidence <= 0.3) || n > this.confidenceWindowMaxSize) {
+        if ((n > 2 * cushion && meanConfidence <= 0.3) || n == this.confidenceWindowMaxSize) {
             return Optional.of(n);
         }
 
@@ -164,7 +204,14 @@ public class ECHO {
 
             final double lLRS = getConfidenceList(this.window).subList(i + 1, n)
                     .stream()
-                    .map(x -> preBeta.density(x) / postBeta.density(x))
+                    .map(x -> {
+                        if (x > 0.995) {
+                            x = 0.995;
+                        } else if (x < 0.005) {
+                            x = 0.005;
+                        }
+                        return preBeta.density(x) / postBeta.density(x);
+                    })
                     .map(Math::log)
                     .reduce(0.0, Double::sum);
 
@@ -179,7 +226,8 @@ public class ECHO {
             return Optional.of(n);
         }
 
-        if (maxLLRSIndex != -1 && maxLLRS > -Math.log(this.sensitivity)) {
+        if (maxLLRSIndex != -1 && maxLLRS >= -Math.log(this.sensitivity)) {
+            System.out.println("Mudança de conceito detectada - ponto de mudança " + maxLLRSIndex + " - time " + this.timestamp + " - window size " + this.window.size());
             return Optional.of(maxLLRSIndex);
         }
 
@@ -251,7 +299,7 @@ public class ECHO {
 
     private static List<Sample> getQNearestNeighbors(final Sample sample, final List<Sample> samples, final int q) {
 
-        List<Sample> sampleList = new ArrayList<>(samples);
+        final List<Sample> sampleList = new ArrayList<>(samples);
         sampleList.remove(sample);
         sampleList.sort(new SampleDistanceComparator(sample));
 
@@ -264,21 +312,24 @@ public class ECHO {
         return sampleList.subList(0, n);
     }
 
-    private void updateClassifier(int changePoint) {
+    private void updateClassifier(final int changePoint) {
+
+        final List<ClassificationResult> classificationResults = new ArrayList<>();
+
+        this.window.stream()
+                .filter(classificationResult -> classificationResult.getConfidence() > this.confidenceThreshold)
+                .forEach(classificationResults::add);
 
         final List<Sample> labeledSamples = new ArrayList<>();
-        final List<ClassifiedSample> classifiedSamples = new ArrayList<>();
 
         this.window.stream()
-                .filter(classifiedSample -> classifiedSample.getConfidence() > this.confidenceThreshold)
-                .forEach(classifiedSamples::add);
-
-        this.window.stream()
-                .filter(classifiedSample -> classifiedSample.getConfidence() <= this.confidenceThreshold)
-                .map(ClassifiedSample::getSample)
+                .filter(classificationResult -> classificationResult.getConfidence() <= this.confidenceThreshold)
+                .map(ClassificationResult::getSample)
                 .forEach(labeledSamples::add);
 
-        final Model model = Model.fit(labeledSamples, classifiedSamples, this.k, this.randomGeneratorSeed);
+        this.numberOfLabeledSamples += labeledSamples.size();
+
+        final Model model = Model.fit(labeledSamples, classificationResults, this.k, this.random);
         this.ensemble.remove(0);
         this.ensemble.add(model);
         this.window.removeAll(this.window.subList(0, changePoint));
@@ -289,18 +340,28 @@ public class ECHO {
 
         assert !warmed;
 
-        if (this.heater.getEnsembleSize() < this.ensembleSize) {
-            this.heater.process(sample);
-        } else {
+        if (!this.confusionMatrix.isLabelKnown(sample.getY())) {
+            this.confusionMatrix.addKnownLabel(sample.getY());
+        }
+
+        this.heater.process(sample);
+
+        if (this.heater.getEnsembleSize() == this.ensembleSize) {
             this.warmed = true;
             this.ensemble.addAll(this.heater.getResult());
         }
 
     }
 
-    private static List<Double> getConfidenceList(List<ClassifiedSample> classifiedSamples) {
-        return classifiedSamples.stream()
-                .map(ClassifiedSample::getConfidence)
-                .collect(Collectors.toCollection(ArrayList::new));
+    public int getNumberOfLabeledSamples() {
+        return numberOfLabeledSamples;
+    }
+
+    public long getTimestamp() {
+        return timestamp - 1;
+    }
+
+    public DynamicConfusionMatrix getConfusionMatrix() {
+        return confusionMatrix;
     }
 }

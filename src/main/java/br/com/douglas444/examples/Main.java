@@ -13,13 +13,13 @@ import java.net.URL;
 public class Main {
 
     private static final int Q = 1000;
-    private static final int K = 100;
+    private static final int K = 50;
     private static final double GAMMA = 0.5;
     private static final double SENSITIVITY = 0.001;
-    private static final double CONFIDENCE_THRESHOLD = 0.90;
+    private static final double CONFIDENCE_THRESHOLD = 0.6;
     private static final int FILTERED_OUTLIER_BUFFER_MAX_SIZE = 0;
     private static final int CONFIDENCE_WINDOW_MAX_SIZE = 1000;
-    private static final int ENSEMBLE_SIZE = 6;
+    private static final int ENSEMBLE_SIZE = 5;
     private static final int RANDOM_GENERATOR_SEED = 0;
     private static final int CHUNK_SIZE = 2000;
 
@@ -45,7 +45,7 @@ public class Main {
 
         FileReader fileReader = new FileReader(file);
         DSFileReader dsFileReader = new DSFileReader(",", fileReader);
-        DSClassifierExecutor.start(echoController, dsFileReader, true, 10000);
+        DSClassifierExecutor.start(echoController, dsFileReader, false);
 
         url = Main.class.getClassLoader().getResource("MOA3_fold1_onl");
         assert url != null;
@@ -53,7 +53,7 @@ public class Main {
 
         fileReader = new FileReader(file);
         dsFileReader = new DSFileReader(",", fileReader);
-        DSClassifierExecutor.start(echoController, dsFileReader, true, 10000);
+        DSClassifierExecutor.start(echoController, dsFileReader, true, 1);
 
 
     }

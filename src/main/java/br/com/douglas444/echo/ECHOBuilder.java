@@ -1,11 +1,10 @@
 package br.com.douglas444.echo;
 
 import br.com.douglas444.dsframework.DSClassifierBuilder;
-import br.com.douglas444.dsframework.DSClassifierController;
 
 public class ECHOBuilder  implements DSClassifierBuilder {
 
-    private ECHO echo;
+    private final ECHO echo;
 
     public ECHOBuilder(int q,
                        int k,

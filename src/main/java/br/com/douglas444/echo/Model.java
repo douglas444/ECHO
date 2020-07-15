@@ -10,34 +10,45 @@ import java.util.stream.IntStream;
 class Model {
 
     private final List<PseudoPoint> pseudoPoints;
-    private final double[] correlationVector;
+    private final double accuracyAssociationCorrelation;
+    private final double accuracyPurityCorrelation;
     private final HashSet<Integer> knownLabels;
 
-    private Model(List<PseudoPoint> pseudoPoints, double[] correlationVector, HashSet<Integer> knownLabels) {
+
+    private Model(List<PseudoPoint> pseudoPoints,
+                  double accuracyAssociationCorrelation,
+                  double accuracyPurityCorrelation,
+                  HashSet<Integer> knownLabels) {
+
         this.pseudoPoints = pseudoPoints;
-        this.correlationVector = correlationVector;
+        this.accuracyAssociationCorrelation = accuracyAssociationCorrelation;
+        this.accuracyPurityCorrelation = accuracyPurityCorrelation;
         this.knownLabels = knownLabels;
     }
 
-
-    static Model fit(final List<Sample> samples, final List<ClassifiedSample> classifiedSamples, int k, long seed) {
+    static Model fit(final List<Sample> samples, final List<ClassificationResult> classificationResults, final int k,
+                     final Random random) {
 
         final List<Sample> labeledSamples = new ArrayList<>(samples);
 
-        classifiedSamples.stream()
-                .map(classifiedSample -> new Sample(classifiedSample.getSample().getX(), classifiedSample.getLabel()))
+        classificationResults.stream()
+                .map(classificationResult -> {
+                    final Optional<Integer> label = classificationResult.getLabel();
+                    assert label.isPresent();
+                    return new Sample(classificationResult.getSample().getX(), label.get());
+                })
                 .forEach(labeledSamples::add);
 
-        return fit(labeledSamples, k, seed);
+        return fit(labeledSamples, k, random);
 
     }
 
-    static Model fit(final List<Sample> labeledSamples, int k, long seed) {
+    static Model fit(final List<Sample> labeledSamples, final int k, final Random random) {
 
         final HashSet<Integer> knowLabels = new HashSet<>();
 
         final List<PseudoPoint> pseudoPoints = MCIKMeans
-                .execute(labeledSamples, new ArrayList<>(), k, seed)
+                .execute(labeledSamples, new ArrayList<>(), k, random)
                 .stream()
                 .map(PseudoPoint::new)
                 .peek(pseudoPoint -> knowLabels.add(pseudoPoint.getLabel()))
@@ -53,8 +64,8 @@ class Model {
             final PseudoPoint closestPseudoPoint = PseudoPoint.getClosestPseudoPoint(labeledSample, pseudoPoints);
             final double distance = closestPseudoPoint.getCentroid().distance(labeledSample);
 
-            final boolean hit = distance <= closestPseudoPoint.getRadius()
-                    && labeledSample.getY().equals(closestPseudoPoint.getLabel());
+            final boolean hit = closestPseudoPoint.getRadius() - distance >= 0 &&
+                    labeledSample.getY().equals(closestPseudoPoint.getLabel());
 
             hits[i] = hit ? 1 : 0;
             associationValues[i] = calculateAssociation(labeledSample, closestPseudoPoint);
@@ -62,29 +73,30 @@ class Model {
 
         }
 
-        final double[] correlationVector = new double[]{
-                calculatePearsonCorrelationCoefficient(associationValues, hits),
-                calculatePearsonCorrelationCoefficient(purityValues, hits)
-        };
+        double accuracyAssociationCorrelation = calculatePearsonCorrelationCoefficient(associationValues, hits);
+        double accuracyPurityCorrelation = calculatePearsonCorrelationCoefficient(purityValues, hits);
 
-        return new Model(pseudoPoints, correlationVector, knowLabels);
+        if (accuracyAssociationCorrelation == 0) {
+            accuracyAssociationCorrelation = 1;
+        }
+        if (accuracyPurityCorrelation == 0) {
+            accuracyPurityCorrelation = 1;
+        }
+
+        return new Model(pseudoPoints, accuracyAssociationCorrelation, accuracyPurityCorrelation, knowLabels);
 
     }
 
-    Optional<ClassifiedSample> classify(final Sample sample) {
+    ClassificationResult classify(final Sample sample) {
 
         final PseudoPoint closestPseudoPoint = PseudoPoint.getClosestPseudoPoint(sample, this.pseudoPoints);
         final double distance = closestPseudoPoint.getCentroid().distance(sample);
 
-        if (distance > closestPseudoPoint.getRadius()) {
-            return Optional.empty();
-        } else {
-
-            ClassifiedSample classifiedSample = new ClassifiedSample(closestPseudoPoint.getLabel(), sample,
-                    this.calculateConfidence(sample, closestPseudoPoint));
-
-            return Optional.of(classifiedSample);
-        }
+        return new ClassificationResult(
+                closestPseudoPoint.getLabel(),
+                sample,
+                this.calculateConfidence(sample, closestPseudoPoint),
+                distance <= closestPseudoPoint.getRadius());
 
     }
 
@@ -93,11 +105,7 @@ class Model {
         final double association = calculateAssociation(sample, closestPseudoPoint);
         final double purity = closestPseudoPoint.calculatePurity();
 
-        final double[] heuristicVector = {association, purity};
-
-        return this.correlationVector[0] * heuristicVector[0]
-                + this.correlationVector[1] * heuristicVector[1];
-
+        return this.accuracyAssociationCorrelation * association + this.accuracyPurityCorrelation * purity;
     }
 
     private static double calculateAssociation(final Sample sample, final PseudoPoint closestPseudoPoint) {
@@ -131,11 +139,11 @@ class Model {
 
     }
 
-    public HashSet<Integer> getKnownLabels() {
+    HashSet<Integer> getKnownLabels() {
         return knownLabels;
     }
 
-    public List<Sample> getPseudoPointsCentroid() {
+    List<Sample> getPseudoPointsCentroid() {
         return pseudoPoints.stream()
                 .map(PseudoPoint::getCentroid)
                 .collect(Collectors.toCollection(ArrayList::new));

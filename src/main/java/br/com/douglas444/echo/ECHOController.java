@@ -15,11 +15,15 @@ public class ECHOController implements DSClassifierController {
 
     @Override
     public Optional<Integer> process(final Sample sample) {
-        return this.echo.process(sample);
+        final ClassificationResult classificationResult = this.echo.process(sample);
+        return classificationResult.getLabel();
     }
 
     @Override
     public String getLog() {
-        return null;
+
+        return String.format("Timestamp = %d, Labeled samples count = %d",
+                this.echo.getTimestamp(),
+                this.echo.getNumberOfLabeledSamples()) + "\n" + echo.getConfusionMatrix().toString();
     }
 }
