@@ -181,6 +181,15 @@ public class ECHO {
 
     }
 
+    private boolean meanShiftDetection(final List<Double> preConfidence, final List<Double> postConfidence) {
+
+        final double postMean = postConfidence.stream().reduce(0.0, Double::sum) / postConfidence.size();
+        final double preMean = preConfidence.stream().reduce(0.0, Double::sum) / preConfidence.size();
+
+        return (preMean - postMean) >= this.sensitivity;
+
+    }
+
     private Optional<Integer> changeDetection() {
 
         final int n = this.window.size();
@@ -196,28 +205,32 @@ public class ECHO {
 
         for (int i = cushion; i <= n - cushion; ++i) {
 
-            final BetaDistribution preBeta = estimateBetaDistribution(
-                    getConfidenceList(this.window).subList(0, i));
+            final List<Double> preConfidenceList = getConfidenceList(this.window).subList(0, i);
+            final List<Double> postConfidenceList = getConfidenceList(this.window).subList(i, n);
 
-            final BetaDistribution postBeta = estimateBetaDistribution(
-                    getConfidenceList(this.window).subList(i, n));
+            if (meanShiftDetection(preConfidenceList, postConfidenceList)) {
 
-            final double lLRS = getConfidenceList(this.window).subList(i + 1, n)
-                    .stream()
-                    .map(x -> {
-                        if (x > 0.995) {
-                            x = 0.995;
-                        } else if (x < 0.005) {
-                            x = 0.005;
-                        }
-                        return preBeta.density(x) / postBeta.density(x);
-                    })
-                    .map(Math::log)
-                    .reduce(0.0, Double::sum);
+                final BetaDistribution preBeta = estimateBetaDistribution(preConfidenceList);
+                final BetaDistribution postBeta = estimateBetaDistribution(postConfidenceList);
 
-            if (lLRS > maxLLRS) {
-                maxLLRS = lLRS;
-                maxLLRSIndex = i;
+                final double lLRS = getConfidenceList(this.window).subList(i + 1, n)
+                        .stream()
+                        .map(x -> {
+                            if (x > 0.995) {
+                                x = 0.995;
+                            } else if (x < 0.005) {
+                                x = 0.005;
+                            }
+                            return preBeta.density(x) / postBeta.density(x);
+                        })
+                        .map(Math::log)
+                        .reduce(0.0, Double::sum);
+
+                if (lLRS > maxLLRS) {
+                    maxLLRS = lLRS;
+                    maxLLRSIndex = i;
+                }
+
             }
 
         }
