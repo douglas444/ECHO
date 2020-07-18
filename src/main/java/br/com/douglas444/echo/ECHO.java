@@ -16,6 +16,7 @@ public class ECHO {
     private boolean warmed;
     private int numberOfLabeledSamples;
 
+    private final HashMap<Integer, StatElement> stat;
     private final List<Sample> filteredOutlierBuffer;
     private final List<Model> ensemble;
     private final List<ClassificationResult> window;
@@ -56,6 +57,7 @@ public class ECHO {
         this.warmed = false;
         this.numberOfLabeledSamples = 0;
 
+        this.stat = new HashMap<>();
         this.filteredOutlierBuffer = new ArrayList<>();
         this.ensemble = new ArrayList<>();
         this.window = new ArrayList<>();
@@ -81,10 +83,8 @@ public class ECHO {
             this.window.add(classificationResult);
             this.confusionMatrix.addPrediction(sample.getY(), label, false);
 
-            if (confidence < this.confidenceThreshold) {
+            if (confidence < this.confidenceThreshold || this.window.size() == this.confidenceWindowMaxSize) {
                 this.changeDetection().ifPresent(this::updateClassifier);
-            } else if (this.window.size() == this.confidenceWindowMaxSize) {
-                this.window.remove(0);
             }
 
         }, () -> {
@@ -181,13 +181,71 @@ public class ECHO {
 
     }
 
-    private boolean meanShiftDetection(final List<Double> preConfidence, final List<Double> postConfidence) {
+    private boolean meanShiftDetection(int i) {
 
-        final double postMean = postConfidence.stream().reduce(0.0, Double::sum) / postConfidence.size();
-        final double preMean = preConfidence.stream().reduce(0.0, Double::sum) / preConfidence.size();
+        final List<Double> preConfidenceList = getConfidenceList(this.window).subList(0, i);
+        final List<Double> postConfidenceList = getConfidenceList(this.window).subList(i, this.window.size());
 
+        final double postMean = postConfidenceList.stream().reduce(0.0, Double::sum) / postConfidenceList.size();
+        final double preMean;
+
+        if (this.stat.containsKey(i)) {
+            preMean = this.stat.get(i).getPreMean();
+        } else {
+            preMean = preConfidenceList.stream().reduce(0.0, Double::sum) / preConfidenceList.size();
+            this.stat.put(i, new StatElement(preMean));
+        }
         return (preMean - postMean) >= this.sensitivity;
 
+    }
+
+    private double calculateLogLikelihoodRatioSum(final int i, final int n, final BetaDistribution preBeta) {
+
+        final BetaDistribution postBeta = estimateBetaDistribution(getConfidenceList(this.window).subList(i, n));
+
+        return getConfidenceList(this.window).subList(i, n)
+                .stream()
+                .map(x -> {
+                    if (x > 0.995) {
+                        x = 0.995;
+                    } else if (x < 0.005) {
+                        x = 0.005;
+                    }
+                    return Math.log(postBeta.density(x) / preBeta.density(x));
+                })
+                .reduce(0.0, Double::sum);
+
+    }
+
+    private double recursiveLogLikelihoodRatioSum(final int i, final int n, final double cushion) {
+
+        if (n <= 2 * cushion) {
+
+            return 0;
+
+        } else if (this.stat.get(i).getM() == -1) {
+
+            final BetaDistribution preBeta = estimateBetaDistribution(
+                    getConfidenceList(this.window).subList(0, i));
+
+            final double logLikelihoodRatioSum = calculateLogLikelihoodRatioSum(i + 1, n, preBeta);
+
+            this.stat.get(i).setM(n);
+            this.stat.get(i).setLogLikelihoodRatioSum(logLikelihoodRatioSum);
+            this.stat.get(i).setPreBeta(preBeta);
+
+            return logLikelihoodRatioSum;
+
+        } else {
+
+            final StatElement statElement = this.stat.get(i);
+
+            final double logLikelihoodRatioSum = calculateLogLikelihoodRatioSum(statElement.getM() + 1, n,
+                    statElement.getPreBeta());
+
+            return statElement.getLogLikelihoodRatioSum() + logLikelihoodRatioSum;
+
+        }
     }
 
     private Optional<Integer> changeDetection() {
@@ -196,52 +254,36 @@ public class ECHO {
         final double meanConfidence = getConfidenceList(this.window).stream().reduce(0.0, Double::sum) / n;
         final int cushion = Math.max(100, (int) Math.floor(Math.pow(n, this.gamma)));
 
-        if ((n > 2 * cushion && meanConfidence <= 0.3) || n == this.confidenceWindowMaxSize) {
+        if ((n > 2 * cushion && meanConfidence <= 0.3) || n >= this.confidenceWindowMaxSize) {
             return Optional.of(n);
         }
 
-        double maxLLRS = 0; //LLRS stands for Log Likelihood Ratio Sum
-        int maxLLRSIndex = -1;
+        double maxLogLikelihoodRatioSum = 0;
+        int maxIndex = -1;
 
         for (int i = cushion; i <= n - cushion; ++i) {
 
-            final List<Double> preConfidenceList = getConfidenceList(this.window).subList(0, i);
-            final List<Double> postConfidenceList = getConfidenceList(this.window).subList(i, n);
+            if (meanShiftDetection(i)) {
 
-            if (meanShiftDetection(preConfidenceList, postConfidenceList)) {
+                final double logLikelihoodRatioSum = recursiveLogLikelihoodRatioSum(i, n, cushion);
 
-                final BetaDistribution preBeta = estimateBetaDistribution(preConfidenceList);
-                final BetaDistribution postBeta = estimateBetaDistribution(postConfidenceList);
-
-                final double lLRS = getConfidenceList(this.window).subList(i + 1, n)
-                        .stream()
-                        .map(x -> {
-                            if (x > 0.995) {
-                                x = 0.995;
-                            } else if (x < 0.005) {
-                                x = 0.005;
-                            }
-                            return preBeta.density(x) / postBeta.density(x);
-                        })
-                        .map(Math::log)
-                        .reduce(0.0, Double::sum);
-
-                if (lLRS > maxLLRS) {
-                    maxLLRS = lLRS;
-                    maxLLRSIndex = i;
+                if (logLikelihoodRatioSum > maxLogLikelihoodRatioSum) {
+                    maxLogLikelihoodRatioSum = logLikelihoodRatioSum;
+                    maxIndex = i;
                 }
-
             }
-
         }
 
-        if (maxLLRSIndex != -1 && n >= 100 && meanConfidence < 0.3) {
+        if (maxLogLikelihoodRatioSum != -1 && n >= 100 && meanConfidence < 0.3) {
             return Optional.of(n);
         }
 
-        if (maxLLRSIndex != -1 && maxLLRS >= -Math.log(this.sensitivity)) {
-            System.out.println("Mudança de conceito detectada - ponto de mudança " + maxLLRSIndex + " - time " + this.timestamp + " - window size " + this.window.size());
-            return Optional.of(maxLLRSIndex);
+        if (maxIndex != -1 && maxLogLikelihoodRatioSum >= -Math.log(this.sensitivity)) {
+
+            System.out.println("Mudança de conceito detectada - ponto de mudança " + maxIndex +
+                    " - time " + this.timestamp + " - window size " + this.window.size());
+
+            return Optional.of(maxIndex);
         }
 
         return Optional.empty();
@@ -253,8 +295,7 @@ public class ECHO {
 
         final double variance = data
                 .stream()
-                .map(value -> Math.abs(value - mean))
-                .map(value -> value * value)
+                .map(value -> Math.abs(value - mean) * Math.abs(value - mean))
                 .reduce(0.0, Double::sum) / data.size();
 
         final double alpha = ((Math.pow(mean, 2) - Math.pow(mean, 3)) / variance) - mean;
@@ -346,6 +387,7 @@ public class ECHO {
         this.ensemble.remove(0);
         this.ensemble.add(model);
         this.window.removeAll(this.window.subList(0, changePoint));
+        this.stat.clear();
 
     }
 
