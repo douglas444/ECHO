@@ -16,7 +16,8 @@ public class Main {
     private static final int K = 50;
     private static final double GAMMA = 0.5;
     private static final double SENSITIVITY = 0.001;
-    private static final double CONFIDENCE_THRESHOLD = 0.9;
+    private static final double CONFIDENCE_THRESHOLD = 0.5;
+    private static final double ACTIVE_LEARNING_THRESHOLD = 0.5;
     private static final int FILTERED_OUTLIER_BUFFER_MAX_SIZE = 0;
     private static final int CONFIDENCE_WINDOW_MAX_SIZE = 1000;
     private static final int ENSEMBLE_SIZE = 5;
@@ -31,6 +32,7 @@ public class Main {
                 GAMMA,
                 SENSITIVITY,
                 CONFIDENCE_THRESHOLD,
+                ACTIVE_LEARNING_THRESHOLD,
                 FILTERED_OUTLIER_BUFFER_MAX_SIZE,
                 CONFIDENCE_WINDOW_MAX_SIZE,
                 ENSEMBLE_SIZE,

@@ -22,8 +22,11 @@ public class ECHOController implements DSClassifierController {
     @Override
     public String getLog() {
 
-        return String.format("Timestamp = %d, Labeled samples count = %d",
+        return String.format("Timestamp = %d, Labeled = %d, Mean conf = %f, CD = %d",
                 this.echo.getTimestamp(),
-                this.echo.getNumberOfLabeledSamples()) + "\n" + echo.getConfusionMatrix().toString();
+                this.echo.getNumberOfLabeledSamples(),
+                this.echo.getMeanConfidence(),
+                this.echo.getNumberOfConceptDrifts())
+                + "\n" + echo.getConfusionMatrix().toString();
     }
 }

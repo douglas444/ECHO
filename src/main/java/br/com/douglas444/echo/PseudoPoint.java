@@ -21,7 +21,7 @@ class PseudoPoint {
         cluster.getSamples().forEach(sample -> sample.setClusterId(null));
 
         this.centroid = cluster.getCentroid();
-        this.radius = cluster.calculateRadius();
+        this.radius = 2 * cluster.calculateStandardDeviation();
         this.totalNumberOfSamples = cluster.getNumberOfLabeledSamples();
         this.label = cluster.getMostFrequentLabel();
         this.numberOfSampleForMostFrequentLabel = cluster.getSamplesByLabel().get(this.label).size();

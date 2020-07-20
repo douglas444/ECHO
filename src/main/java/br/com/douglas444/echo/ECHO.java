@@ -15,6 +15,8 @@ public class ECHO {
     private int timestamp;
     private boolean warmed;
     private int numberOfLabeledSamples;
+    private int numberOfConceptDrifts;
+    private double confidenceSum;
 
     private final HashMap<Integer, StatElement> stat;
     private final List<Sample> filteredOutlierBuffer;
@@ -26,6 +28,7 @@ public class ECHO {
     private final double gamma;
     private final double sensitivity;
     private final double confidenceThreshold;
+    private final double activeLearningThreshold;
     private final int filteredOutlierBufferMaxSize;
     private final int confidenceWindowMaxSize;
     private final int ensembleSize;
@@ -37,6 +40,7 @@ public class ECHO {
                 double gamma,
                 double sensitivity,
                 double confidenceThreshold,
+                double activeLearningThreshold,
                 int filteredOutlierBufferMaxSize,
                 int confidenceWindowMaxSize,
                 int ensembleSize,
@@ -48,6 +52,7 @@ public class ECHO {
         this.gamma = gamma;
         this.sensitivity = sensitivity;
         this.confidenceThreshold = confidenceThreshold;
+        this.activeLearningThreshold = activeLearningThreshold;
         this.filteredOutlierBufferMaxSize = filteredOutlierBufferMaxSize;
         this.confidenceWindowMaxSize = confidenceWindowMaxSize;
         this.ensembleSize = ensembleSize;
@@ -56,6 +61,8 @@ public class ECHO {
         this.timestamp = 1;
         this.warmed = false;
         this.numberOfLabeledSamples = 0;
+        this.numberOfConceptDrifts = 0;
+        this.confidenceSum = 0;
 
         this.stat = new HashMap<>();
         this.filteredOutlierBuffer = new ArrayList<>();
@@ -80,12 +87,13 @@ public class ECHO {
 
         classificationResult.ifExplainedOrElse((label, confidence) -> {
 
-            this.window.add(classificationResult);
-            this.confusionMatrix.addPrediction(sample.getY(), label, false);
-
-            if (confidence < this.confidenceThreshold || this.window.size() == this.confidenceWindowMaxSize) {
+            if (classificationResult.getConfidence() < this.confidenceThreshold || this.window.size() == this.confidenceWindowMaxSize) {
                 this.changeDetection().ifPresent(this::updateClassifier);
             }
+
+            this.window.add(classificationResult);
+            this.confusionMatrix.addPrediction(sample.getY(), label, false);
+            this.confidenceSum += confidence;
 
         }, () -> {
 
@@ -110,36 +118,25 @@ public class ECHO {
 
         final HashMap<Integer, Integer> votesByLabel = new HashMap<>();
 
-        boolean isOutlier = true;
-
-        for (ClassificationResult classification : classifications) {
-
-            if (classification.isExplained()) {
-                isOutlier = false;
-            }
-
-            classification.ifExplained((label, confidence) -> {
-                votesByLabel.putIfAbsent(label, 0);
-                Integer votes = votesByLabel.get(label);
-                votesByLabel.put(label, votes + 1);
-            });
-
-        }
-
-        assert !votesByLabel.isEmpty();
+        classifications.forEach(classification -> classification.ifExplained((label, confidence) -> {
+            votesByLabel.putIfAbsent(label, 0);
+            Integer votes = votesByLabel.get(label);
+            votesByLabel.put(label, votes + 1);
+        }));
 
         final Integer votedLabel;
         final double ensembleConfidence;
 
-        if (isOutlier) {
+        if (votesByLabel.isEmpty()) {
             votedLabel = null;
             ensembleConfidence = 0;
+            return new ClassificationResult(votedLabel, sample, ensembleConfidence, false);
         } else {
             votedLabel = Collections.max(votesByLabel.entrySet(), Map.Entry.comparingByValue()).getKey();
             ensembleConfidence = calculateConfidence(votedLabel, classifications);
+            return new ClassificationResult(votedLabel, sample, ensembleConfidence, true);
         }
 
-        return new ClassificationResult(votedLabel, sample, ensembleConfidence, !isOutlier);
 
     }
 
@@ -149,11 +146,6 @@ public class ECHO {
         final Double maxConfidence = getConfidenceList(classificationResults)
                 .stream()
                 .max(Double::compareTo)
-                .orElse(0.0);
-
-        final Double minConfidence = getConfidenceList(classificationResults)
-                .stream()
-                .min(Double::compareTo)
                 .orElse(0.0);
 
         final List<ClassificationResult> classificationResultsForVotedClass = classificationResults
@@ -169,15 +161,8 @@ public class ECHO {
 
         return confidenceValues
                 .stream()
-                .map(confidenceValue -> {
-                    if (minConfidence.equals(maxConfidence)) {
-                        return confidenceValue;
-                    } else {
-                        return (confidenceValue - minConfidence) / (maxConfidence - minConfidence);
-                    }
-                })
+                .map(value -> value / maxConfidence)
                 .reduce(0.0, Double::sum) / classificationResults.size();
-
 
     }
 
@@ -279,10 +264,7 @@ public class ECHO {
         }
 
         if (maxIndex != -1 && maxLogLikelihoodRatioSum >= -Math.log(this.sensitivity)) {
-
-            System.out.println("Mudança de conceito detectada - ponto de mudança " + maxIndex +
-                    " - time " + this.timestamp + " - window size " + this.window.size());
-
+            ++this.numberOfConceptDrifts;
             return Optional.of(maxIndex);
         }
 
@@ -320,6 +302,8 @@ public class ECHO {
 
         });
 
+        this.filteredOutlierBuffer.clear();
+
         if (samples.size() > this.q) {
             System.out.println("Nova classe detectada");
         }
@@ -328,7 +312,8 @@ public class ECHO {
 
     private double calculateQNeighborhoodSilhouetteCoefficient(final Sample sample, final Model model, final int q) {
 
-        double outMeanDistance = getQNearestNeighbors(sample, this.filteredOutlierBuffer, q).stream()
+        double outMeanDistance = getQNearestNeighbors(sample, this.filteredOutlierBuffer, q)
+                .stream()
                 .map(sample::distance)
                 .reduce(0.0, Double::sum);
 
@@ -336,7 +321,8 @@ public class ECHO {
 
         for (Integer label : model.getKnownLabels()) {
 
-            double labelMeanDistance = getQNearestNeighbors(sample, model.getPseudoPointsCentroid(), q).stream()
+            double labelMeanDistance = getQNearestNeighbors(sample, model.getPseudoPointsCentroid(), q)
+                    .stream()
                     .filter(centroid -> centroid.getY().equals(label))
                     .map(sample::distance)
                     .reduce(0.0, Double::sum);
@@ -371,13 +357,13 @@ public class ECHO {
         final List<ClassificationResult> classificationResults = new ArrayList<>();
 
         this.window.stream()
-                .filter(classificationResult -> classificationResult.getConfidence() > this.confidenceThreshold)
+                .filter(classificationResult -> classificationResult.getConfidence() >= this.activeLearningThreshold)
                 .forEach(classificationResults::add);
 
         final List<Sample> labeledSamples = new ArrayList<>();
 
         this.window.stream()
-                .filter(classificationResult -> classificationResult.getConfidence() <= this.confidenceThreshold)
+                .filter(classificationResult -> classificationResult.getConfidence() < this.activeLearningThreshold)
                 .map(ClassificationResult::getSample)
                 .forEach(labeledSamples::add);
 
@@ -392,8 +378,6 @@ public class ECHO {
     }
 
     private void warmUp(final Sample sample) {
-
-        assert !warmed;
 
         if (!this.confusionMatrix.isLabelKnown(sample.getY())) {
             this.confusionMatrix.addKnownLabel(sample.getY());
@@ -410,6 +394,14 @@ public class ECHO {
 
     public int getNumberOfLabeledSamples() {
         return numberOfLabeledSamples;
+    }
+
+    public int getNumberOfConceptDrifts() {
+        return numberOfConceptDrifts;
+    }
+
+    public double getMeanConfidence() {
+        return confidenceSum / timestamp;
     }
 
     public long getTimestamp() {

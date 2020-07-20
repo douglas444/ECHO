@@ -10,10 +10,9 @@ import java.util.stream.IntStream;
 class Model {
 
     private final List<PseudoPoint> pseudoPoints;
+    private final HashSet<Integer> knownLabels;
     private final double accuracyAssociationCorrelation;
     private final double accuracyPurityCorrelation;
-    private final HashSet<Integer> knownLabels;
-
 
     private Model(List<PseudoPoint> pseudoPoints,
                   double accuracyAssociationCorrelation,
@@ -50,6 +49,7 @@ class Model {
         final List<PseudoPoint> pseudoPoints = MCIKMeans
                 .execute(labeledSamples, new ArrayList<>(), k, random)
                 .stream()
+                .filter(cluster -> cluster.size() > 1)
                 .map(PseudoPoint::new)
                 .peek(pseudoPoint -> knowLabels.add(pseudoPoint.getLabel()))
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -79,6 +79,7 @@ class Model {
         if (accuracyAssociationCorrelation == 0) {
             accuracyAssociationCorrelation = 1;
         }
+
         if (accuracyPurityCorrelation == 0) {
             accuracyPurityCorrelation = 1;
         }
@@ -105,11 +106,16 @@ class Model {
         final double association = calculateAssociation(sample, closestPseudoPoint);
         final double purity = closestPseudoPoint.calculatePurity();
 
-        return this.accuracyAssociationCorrelation * association + this.accuracyPurityCorrelation * purity;
+        return (this.accuracyAssociationCorrelation * association + this.accuracyPurityCorrelation * purity) /
+                (this.accuracyAssociationCorrelation + this.accuracyPurityCorrelation) ;
     }
 
     private static double calculateAssociation(final Sample sample, final PseudoPoint closestPseudoPoint) {
-        return closestPseudoPoint.getRadius() - sample.distance(closestPseudoPoint.getCentroid());
+
+        final double distance = sample.distance(closestPseudoPoint.getCentroid());
+        final double difference = closestPseudoPoint.getRadius() - distance;
+
+        return difference / Math.max(distance, closestPseudoPoint.getRadius());
     }
 
     private static double calculatePearsonCorrelationCoefficient(final double[] v1, final double[] v2) {
