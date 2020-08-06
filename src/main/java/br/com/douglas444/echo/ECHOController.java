@@ -15,18 +15,25 @@ public class ECHOController implements DSClassifierController {
 
     @Override
     public Optional<Integer> process(final Sample sample) {
-        final ClassificationResult classificationResult = this.echo.process(sample);
-        return classificationResult.getLabel();
+        final Classification classification = this.echo.process(sample);
+        if (classification.isExplained()) {
+            return Optional.of(classification.getLabel());
+        } else {
+            return Optional.empty();
+        }
     }
 
     @Override
     public String getLog() {
 
-        return String.format("Timestamp = %d, Labeled = %d, Mean conf = %f, CD = %d",
+        return String.format("Timestamp = %d, Labeled = %d, Mean conf = %f, CD = %d, CER = %f, UnkR = %f, Novelty count = %d",
                 this.echo.getTimestamp(),
-                this.echo.getNumberOfLabeledSamples(),
+                this.echo.getLabeledSamplesCount(),
                 this.echo.getMeanConfidence(),
-                this.echo.getNumberOfConceptDrifts())
+                this.echo.getConceptDriftsCount(),
+                this.echo.calculateCER(),
+                this.echo.calculateUnkR(),
+                this.echo.getNoveltyCount())
                 + "\n" + echo.getConfusionMatrix().toString();
     }
 }

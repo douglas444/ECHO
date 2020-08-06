@@ -25,6 +25,7 @@ class Heater {
     void process(final Sample sample) {
 
         this.chunk.add(sample);
+
         if (this.chunk.size() >= this.chunkSize) {
             this.ensemble.add(Model.fit(this.chunk, this.k, this.random));
             this.chunk.clear();

@@ -14,7 +14,7 @@ class Model {
     private final double accuracyAssociationCorrelation;
     private final double accuracyPurityCorrelation;
 
-    private Model(List<PseudoPoint> pseudoPoints,
+    public Model(List<PseudoPoint> pseudoPoints,
                   double accuracyAssociationCorrelation,
                   double accuracyPurityCorrelation,
                   HashSet<Integer> knownLabels) {
@@ -25,17 +25,14 @@ class Model {
         this.knownLabels = knownLabels;
     }
 
-    static Model fit(final List<Sample> samples, final List<ClassificationResult> classificationResults, final int k,
+    static Model fit(final List<Sample> samples, final List<Classification> classifications, final int k,
                      final Random random) {
 
         final List<Sample> labeledSamples = new ArrayList<>(samples);
 
-        classificationResults.stream()
-                .map(classificationResult -> {
-                    final Optional<Integer> label = classificationResult.getLabel();
-                    assert label.isPresent();
-                    return new Sample(classificationResult.getSample().getX(), label.get());
-                })
+        classifications
+                .stream()
+                .map(classification -> new Sample(classification.getSample().getX(), classification.getLabel()))
                 .forEach(labeledSamples::add);
 
         return fit(labeledSamples, k, random);
@@ -88,16 +85,17 @@ class Model {
 
     }
 
-    ClassificationResult classify(final Sample sample) {
+    Classification classify(final Sample sample) {
 
         final PseudoPoint closestPseudoPoint = PseudoPoint.getClosestPseudoPoint(sample, this.pseudoPoints);
         final double distance = closestPseudoPoint.getCentroid().distance(sample);
 
-        return new ClassificationResult(
+        return new Classification(
                 closestPseudoPoint.getLabel(),
                 sample,
                 this.calculateConfidence(sample, closestPseudoPoint),
-                distance <= closestPseudoPoint.getRadius());
+                distance <= closestPseudoPoint.getRadius(),
+                false);
 
     }
 

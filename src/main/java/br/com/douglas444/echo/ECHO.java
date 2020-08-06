@@ -1,5 +1,6 @@
 package br.com.douglas444.echo;
 
+import br.com.douglas444.mltk.clustering.kmeans.KMeansPlusPlus;
 import br.com.douglas444.mltk.datastructure.DynamicConfusionMatrix;
 import br.com.douglas444.mltk.datastructure.Sample;
 import br.com.douglas444.mltk.util.SampleDistanceComparator;
@@ -8,20 +9,23 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static br.com.douglas444.echo.ClassificationResult.getConfidenceList;
+import static br.com.douglas444.echo.Classification.getConfidenceList;
 
 public class ECHO {
 
     private int timestamp;
     private boolean warmed;
-    private int numberOfLabeledSamples;
-    private int numberOfConceptDrifts;
+    private int labeledSamplesCount;
+    private int conceptDriftsCount;
     private double confidenceSum;
+    private int classificationsCount;
+    private int noveltyCount;
 
     private final HashMap<Integer, StatElement> stat;
     private final List<Sample> filteredOutlierBuffer;
     private final List<Model> ensemble;
-    private final List<ClassificationResult> window;
+    private final List<MicroCluster> noveltyMicroClusters;
+    private final List<Classification> window;
     private final Heater heater;
     private final int q;
     private final int k;
@@ -32,6 +36,7 @@ public class ECHO {
     private final int filteredOutlierBufferMaxSize;
     private final int confidenceWindowMaxSize;
     private final int ensembleSize;
+    private final int chunkSize;
     private final Random random;
     private final DynamicConfusionMatrix confusionMatrix;
 
@@ -56,17 +61,21 @@ public class ECHO {
         this.filteredOutlierBufferMaxSize = filteredOutlierBufferMaxSize;
         this.confidenceWindowMaxSize = confidenceWindowMaxSize;
         this.ensembleSize = ensembleSize;
+        this.chunkSize = chunkSize;
         this.random = new Random(randomGeneratorSeed);
 
         this.timestamp = 1;
         this.warmed = false;
-        this.numberOfLabeledSamples = 0;
-        this.numberOfConceptDrifts = 0;
+        this.labeledSamplesCount = 0;
+        this.conceptDriftsCount = 0;
         this.confidenceSum = 0;
+        this.noveltyCount = 0;
+        this.classificationsCount = 0;
 
         this.stat = new HashMap<>();
         this.filteredOutlierBuffer = new ArrayList<>();
         this.ensemble = new ArrayList<>();
+        this.noveltyMicroClusters = new ArrayList<>();
         this.window = new ArrayList<>();
         this.heater = new Heater(chunkSize, this.k, this.random);
 
@@ -74,95 +83,127 @@ public class ECHO {
 
     }
 
-    public ClassificationResult process(final Sample sample) {
+    public Classification process(final Sample sample) {
 
         if (!this.warmed) {
             this.warmUp(sample);
-            return new ClassificationResult(null, sample, 0.0, false);
+            return new Classification(null, sample, 0.0, false, false);
         }
 
         sample.setT(this.timestamp);
+        final Classification classification = classify(sample);
 
-        final ClassificationResult classificationResult = this.classify(sample);
+        if (classification.isExplained()) {
 
-        classificationResult.ifExplainedOrElse((label, confidence) -> {
+            if (!classification.isNovelty()) {
 
-            if (classificationResult.getConfidence() < this.confidenceThreshold || this.window.size() == this.confidenceWindowMaxSize) {
-                this.changeDetection().ifPresent(this::updateClassifier);
+                if (classification.getConfidence() < this.confidenceThreshold
+                        || this.window.size() == this.confidenceWindowMaxSize) {
+
+                    this.changeDetection().ifPresent(this::updateClassifier);
+                }
+
+                this.window.add(classification);
+                this.confidenceSum += classification.getConfidence();
+                ++this.classificationsCount;
             }
+            this.confusionMatrix.addPrediction(sample.getY(), classification.getLabel(), classification.isNovelty());
 
-            this.window.add(classificationResult);
-            this.confusionMatrix.addPrediction(sample.getY(), label, false);
-            this.confidenceSum += confidence;
-
-        }, () -> {
+        } else {
 
             this.filteredOutlierBuffer.add(sample);
             this.confusionMatrix.addUnknown(sample.getY());
-            if (this.filteredOutlierBuffer.size() == this.filteredOutlierBufferMaxSize) {
+            if (this.filteredOutlierBuffer.size() >= this.filteredOutlierBufferMaxSize) {
                 this.novelClassDetection();
             }
-
-        });
+        }
 
         ++this.timestamp;
-
-        return classificationResult;
+        return classification;
     }
 
-    private ClassificationResult classify(final Sample sample) {
 
-        final List<ClassificationResult> classifications = this.ensemble.stream()
+
+    private Classification classify(final Sample sample) {
+
+        final List<Classification> classifications = this.ensemble.stream()
                 .map(model -> model.classify(sample))
-                .collect(Collectors.toCollection(ArrayList::new));
+                .collect(Collectors.toList());
 
         final HashMap<Integer, Integer> votesByLabel = new HashMap<>();
 
-        classifications.forEach(classification -> classification.ifExplained((label, confidence) -> {
-            votesByLabel.putIfAbsent(label, 0);
-            Integer votes = votesByLabel.get(label);
-            votesByLabel.put(label, votes + 1);
-        }));
+        classifications
+                .stream()
+                .filter(Classification::isExplained)
+                .forEach(classification -> {
+                    if (classification.isExplained()) {
+
+                        Integer label = classification.getLabel();
+
+                        votesByLabel.putIfAbsent(label, 0);
+                        Integer votes = votesByLabel.get(label);
+                        votesByLabel.put(label, votes + 1);
+                    }
+                });
 
         final Integer votedLabel;
         final double ensembleConfidence;
+        final boolean explained;
+        final boolean novelty;
 
         if (votesByLabel.isEmpty()) {
-            votedLabel = null;
-            ensembleConfidence = 0;
-            return new ClassificationResult(votedLabel, sample, ensembleConfidence, false);
+
+            if (!this.noveltyMicroClusters.isEmpty()) {
+
+                final MicroCluster closest = MicroCluster.calculateClosestMicroCluster(sample,
+                        this.noveltyMicroClusters);
+
+                final double distance = sample.distance(closest.calculateCentroid());
+
+                if (distance <= 2 * closest.calculateStandardDeviation()) {
+                    votedLabel = closest.getLabel();
+                    ensembleConfidence = 1;
+                    explained = true;
+                    novelty = true;
+                } else {
+                    votedLabel = null;
+                    ensembleConfidence = 0;
+                    explained = false;
+                    novelty = false;
+                }
+
+            } else {
+                votedLabel = null;
+                ensembleConfidence = 0;
+                explained = false;
+                novelty = false;
+            }
+
         } else {
             votedLabel = Collections.max(votesByLabel.entrySet(), Map.Entry.comparingByValue()).getKey();
             ensembleConfidence = calculateConfidence(votedLabel, classifications);
-            return new ClassificationResult(votedLabel, sample, ensembleConfidence, true);
+            explained = true;
+            novelty = false;
         }
+
+        return new Classification(votedLabel, sample, ensembleConfidence, explained, novelty);
 
 
     }
 
     private static double calculateConfidence(final Integer votedLabel,
-                                              final List<ClassificationResult> classificationResults) {
+                                              final List<Classification> classifications) {
 
-        final Double maxConfidence = getConfidenceList(classificationResults)
+        final List<Classification> classificationsForVotedClass = classifications
                 .stream()
-                .max(Double::compareTo)
-                .orElse(0.0);
-
-        final List<ClassificationResult> classificationResultsForVotedClass = classificationResults
-                .stream()
-                .filter(classificationResult ->
-                    classificationResult
-                            .getLabel()
-                            .map(integer -> integer.equals(votedLabel))
-                            .orElse(false))
+                .filter(classification -> classification.getLabel().equals(votedLabel))
                 .collect(Collectors.toList());
 
-        final List<Double> confidenceValues = getConfidenceList(classificationResultsForVotedClass);
+        final List<Double> confidenceValues = getConfidenceList(classificationsForVotedClass);
 
         return confidenceValues
                 .stream()
-                .map(value -> value / maxConfidence)
-                .reduce(0.0, Double::sum) / classificationResults.size();
+                .reduce(0.0, Double::sum) / classifications.size();
 
     }
 
@@ -225,8 +266,8 @@ public class ECHO {
 
             final StatElement statElement = this.stat.get(i);
 
-            final double logLikelihoodRatioSum = calculateLogLikelihoodRatioSum(statElement.getM() + 1, n,
-                    statElement.getPreBeta());
+            final double logLikelihoodRatioSum = calculateLogLikelihoodRatioSum(
+                    statElement.getM() + 1, n, statElement.getPreBeta());
 
             return statElement.getLogLikelihoodRatioSum() + logLikelihoodRatioSum;
 
@@ -264,7 +305,7 @@ public class ECHO {
         }
 
         if (maxIndex != -1 && maxLogLikelihoodRatioSum >= -Math.log(this.sensitivity)) {
-            ++this.numberOfConceptDrifts;
+            ++this.conceptDriftsCount;
             return Optional.of(maxIndex);
         }
 
@@ -286,14 +327,16 @@ public class ECHO {
         return new BetaDistribution(alpha, beta);
     }
 
-    private void novelClassDetection() {
+    private void novelClassDetection() { ;
 
-        final HashSet<Sample> samples = new HashSet<>(this.filteredOutlierBuffer);
+        this.filteredOutlierBuffer.removeIf(p -> p.getT() < this.timestamp - this.chunkSize);
+
+        final List<Sample> samples = new ArrayList<>(this.filteredOutlierBuffer);
 
         this.filteredOutlierBuffer.forEach(fOutlier -> {
 
             for (Model model : this.ensemble) {
-                double qNSC = calculateQNeighborhoodSilhouetteCoefficient(fOutlier, model, this.q);
+                final double qNSC = calculateQNeighborhoodSilhouetteCoefficient(fOutlier, model, this.q);
                 if (qNSC < 0) {
                     samples.remove(fOutlier);
                     break;
@@ -302,30 +345,46 @@ public class ECHO {
 
         });
 
-        this.filteredOutlierBuffer.clear();
+        if (samples.size() >= this.q) {
 
-        if (samples.size() > this.q) {
-            System.out.println("Nova classe detectada");
+            this.filteredOutlierBuffer.removeAll(samples);
+
+            final List<MicroCluster> microClusters = KMeansPlusPlus
+                    .execute(samples, this.k, this.random)
+                    .stream()
+                    .peek(cluster -> {
+                        for (Sample sample : cluster.getSamples()) {
+                            this.confusionMatrix.updatedDelayed(sample.getY(), this.noveltyCount, true);
+                        }
+                    })
+                    .map(cluster -> new MicroCluster(cluster, this.noveltyCount))
+                    .collect(Collectors.toList());
+
+            this.noveltyMicroClusters.addAll(microClusters);
+
+            ++this.noveltyCount;
         }
 
     }
 
     private double calculateQNeighborhoodSilhouetteCoefficient(final Sample sample, final Model model, final int q) {
 
-        double outMeanDistance = getQNearestNeighbors(sample, this.filteredOutlierBuffer, q)
-                .stream()
+        List<Sample> qNearestNeighbors = getQNearestNeighbors(sample, this.filteredOutlierBuffer, q);
+
+        final double outMeanDistance = qNearestNeighbors.stream()
                 .map(sample::distance)
-                .reduce(0.0, Double::sum);
+                .reduce(0.0, Double::sum) / qNearestNeighbors.size();
 
         double minLabelMeanDistance = -1;
 
         for (Integer label : model.getKnownLabels()) {
 
-            double labelMeanDistance = getQNearestNeighbors(sample, model.getPseudoPointsCentroid(), q)
+            qNearestNeighbors = getQNearestNeighbors(sample, model.getPseudoPointsCentroid(), q, label);
+
+            final double labelMeanDistance = qNearestNeighbors
                     .stream()
-                    .filter(centroid -> centroid.getY().equals(label))
                     .map(sample::distance)
-                    .reduce(0.0, Double::sum);
+                    .reduce(0.0, Double::sum) / qNearestNeighbors.size();
 
             if (minLabelMeanDistance == -1 || labelMeanDistance < minLabelMeanDistance) {
                 minLabelMeanDistance = labelMeanDistance;
@@ -337,11 +396,32 @@ public class ECHO {
 
     }
 
-    private static List<Sample> getQNearestNeighbors(final Sample sample, final List<Sample> samples, final int q) {
+    private static List<Sample> getQNearestNeighbors(final Sample targetSample, final List<Sample> samples, final int q) {
 
-        final List<Sample> sampleList = new ArrayList<>(samples);
-        sampleList.remove(sample);
-        sampleList.sort(new SampleDistanceComparator(sample));
+        final List<Sample> sampleList = samples
+                .stream()
+                .filter(sample -> !sample.equals(targetSample))
+                .sorted(new SampleDistanceComparator(targetSample))
+                .collect(Collectors.toList());
+
+        int n = q;
+
+        if (n > sampleList.size()) {
+            n = sampleList.size();
+        }
+
+        return sampleList.subList(0, n);
+    }
+
+    private static List<Sample> getQNearestNeighbors(final Sample targetSample, final List<Sample> samples, final int q,
+                                                     final int label) {
+
+        final List<Sample> sampleList = samples
+                .stream()
+                .filter(sample -> !sample.equals(targetSample))
+                .filter(sample -> sample.getY().equals(label))
+                .sorted(new SampleDistanceComparator(targetSample))
+                .collect(Collectors.toList());
 
         int n = q;
 
@@ -354,22 +434,29 @@ public class ECHO {
 
     private void updateClassifier(final int changePoint) {
 
-        final List<ClassificationResult> classificationResults = new ArrayList<>();
+        final List<Classification> classifications = new ArrayList<>();
 
         this.window.stream()
-                .filter(classificationResult -> classificationResult.getConfidence() >= this.activeLearningThreshold)
-                .forEach(classificationResults::add);
+                .filter(classification -> classification.getConfidence() >= this.activeLearningThreshold)
+                .forEach(classifications::add);
 
         final List<Sample> labeledSamples = new ArrayList<>();
 
         this.window.stream()
-                .filter(classificationResult -> classificationResult.getConfidence() < this.activeLearningThreshold)
-                .map(ClassificationResult::getSample)
+                .filter(classification -> classification.getConfidence() < this.activeLearningThreshold)
+                .map(Classification::getSample)
                 .forEach(labeledSamples::add);
 
-        this.numberOfLabeledSamples += labeledSamples.size();
+        this.labeledSamplesCount += labeledSamples.size();
 
-        final Model model = Model.fit(labeledSamples, classificationResults, this.k, this.random);
+        final Model model = Model.fit(labeledSamples, classifications, this.k, this.random);
+
+        model.getKnownLabels().forEach((label) -> {
+            if (!confusionMatrix.isLabelKnown(label)) {
+                confusionMatrix.addKnownLabel(label);
+            }
+        });
+
         this.ensemble.remove(0);
         this.ensemble.add(model);
         this.window.removeAll(this.window.subList(0, changePoint));
@@ -392,16 +479,16 @@ public class ECHO {
 
     }
 
-    public int getNumberOfLabeledSamples() {
-        return numberOfLabeledSamples;
+    public int getLabeledSamplesCount() {
+        return labeledSamplesCount;
     }
 
-    public int getNumberOfConceptDrifts() {
-        return numberOfConceptDrifts;
+    public int getConceptDriftsCount() {
+        return conceptDriftsCount;
     }
 
     public double getMeanConfidence() {
-        return confidenceSum / timestamp;
+        return confidenceSum / classificationsCount;
     }
 
     public long getTimestamp() {
@@ -410,5 +497,17 @@ public class ECHO {
 
     public DynamicConfusionMatrix getConfusionMatrix() {
         return confusionMatrix;
+    }
+
+    public double calculateCER() {
+        return this.confusionMatrix.cer();
+    }
+
+    public double calculateUnkR() {
+        return this.confusionMatrix.unkR();
+    }
+
+    public int getNoveltyCount() {
+        return noveltyCount;
     }
 }

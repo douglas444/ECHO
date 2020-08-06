@@ -5,7 +5,7 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 public class StatElement {
 
     private int m;
-    private double preMean;
+    private final double preMean;
     private BetaDistribution preBeta;
     private double logLikelihoodRatioSum;
 

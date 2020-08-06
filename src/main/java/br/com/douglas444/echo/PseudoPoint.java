@@ -1,5 +1,6 @@
 package br.com.douglas444.echo;
 
+import br.com.douglas444.mltk.datastructure.Cluster;
 import br.com.douglas444.mltk.datastructure.ImpurityBasedCluster;
 import br.com.douglas444.mltk.datastructure.Sample;
 import br.com.douglas444.mltk.util.SampleDistanceComparator;
@@ -10,11 +11,11 @@ import java.util.stream.Collectors;
 
 class PseudoPoint {
 
-    private Sample centroid;
-    private double radius;
-    private int totalNumberOfSamples;
-    private int numberOfSampleForMostFrequentLabel;
-    private Integer label;
+    private final Sample centroid;
+    private final double radius;
+    private final int totalNumberOfLabeledSamples;
+    private final int numberOfSampleForMostFrequentLabel;
+    private final Integer label;
 
     PseudoPoint(ImpurityBasedCluster cluster) {
 
@@ -22,7 +23,7 @@ class PseudoPoint {
 
         this.centroid = cluster.getCentroid();
         this.radius = 2 * cluster.calculateStandardDeviation();
-        this.totalNumberOfSamples = cluster.getNumberOfLabeledSamples();
+        this.totalNumberOfLabeledSamples = cluster.getNumberOfLabeledSamples();
         this.label = cluster.getMostFrequentLabel();
         this.numberOfSampleForMostFrequentLabel = cluster.getSamplesByLabel().get(this.label).size();
 
@@ -50,7 +51,7 @@ class PseudoPoint {
     }
 
     double calculatePurity() {
-        return (double) this.numberOfSampleForMostFrequentLabel / this.totalNumberOfSamples;
+        return (double) this.numberOfSampleForMostFrequentLabel / this.totalNumberOfLabeledSamples;
     }
 
     Sample getCentroid() {
