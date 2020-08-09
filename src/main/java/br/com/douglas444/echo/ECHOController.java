@@ -41,4 +41,8 @@ public class ECHOController implements DSClassifierController {
     public DynamicConfusionMatrix getDynamicConfusionMatrix() {
         return this.echo.getConfusionMatrix();
     }
+
+    public int getNoveltyCount() {
+        return this.echo.getNoveltyCount();
+    }
 }
