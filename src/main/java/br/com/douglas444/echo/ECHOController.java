@@ -1,6 +1,7 @@
 package br.com.douglas444.echo;
 
 import br.com.douglas444.dsframework.DSClassifierController;
+import br.com.douglas444.mltk.datastructure.DynamicConfusionMatrix;
 import br.com.douglas444.mltk.datastructure.Sample;
 
 import java.util.Optional;
@@ -35,5 +36,9 @@ public class ECHOController implements DSClassifierController {
                 this.echo.calculateUnkR(),
                 this.echo.getNoveltyCount())
                 + "\n" + echo.getConfusionMatrix().toString();
+    }
+
+    public DynamicConfusionMatrix getDynamicConfusionMatrix() {
+        return this.echo.getConfusionMatrix();
     }
 }
