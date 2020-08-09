@@ -37,7 +37,8 @@ public class Main {
                 CONFIDENCE_WINDOW_MAX_SIZE,
                 ENSEMBLE_SIZE,
                 RANDOM_GENERATOR_SEED,
-                CHUNK_SIZE);
+                CHUNK_SIZE,
+                null);
 
         final ECHOController echoController = echoBuilder.build();
 

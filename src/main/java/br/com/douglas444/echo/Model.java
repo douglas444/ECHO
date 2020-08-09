@@ -7,7 +7,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-class Model {
+public class Model {
 
     private final List<PseudoPoint> pseudoPoints;
     private final HashSet<Integer> knownLabels;
@@ -25,29 +25,12 @@ class Model {
         this.knownLabels = knownLabels;
     }
 
-    static Model fit(final List<Sample> samples, final List<Classification> classifications, final int k,
-                     final Random random) {
-
-        final List<Sample> labeledSamples = new ArrayList<>(samples);
-
-        classifications
-                .stream()
-                .map(classification -> new Sample(classification.getSample().getX(), classification.getLabel()))
-                .forEach(labeledSamples::add);
-
-        return fit(labeledSamples, k, random);
-
-    }
-
-    static Model fit(final List<Sample> labeledSamples, final int k, final Random random) {
+    static Model fit(final List<Sample> labeledSamples, List<PseudoPoint> pseudoPoints) {
 
         final HashSet<Integer> knowLabels = new HashSet<>();
 
-        final List<PseudoPoint> pseudoPoints = MCIKMeans
-                .execute(labeledSamples, new ArrayList<>(), k, random)
+        pseudoPoints = pseudoPoints
                 .stream()
-                .filter(cluster -> cluster.size() > 1)
-                .map(PseudoPoint::new)
                 .peek(pseudoPoint -> knowLabels.add(pseudoPoint.getLabel()))
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -143,11 +126,11 @@ class Model {
 
     }
 
-    HashSet<Integer> getKnownLabels() {
+    public HashSet<Integer> getKnownLabels() {
         return knownLabels;
     }
 
-    List<Sample> getPseudoPointsCentroid() {
+    public List<Sample> getPseudoPointsCentroid() {
         return pseudoPoints.stream()
                 .map(PseudoPoint::getCentroid)
                 .collect(Collectors.toCollection(ArrayList::new));

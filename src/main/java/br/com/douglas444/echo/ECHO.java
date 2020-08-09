@@ -1,7 +1,13 @@
 package br.com.douglas444.echo;
 
+import br.com.douglas444.echo.interceptor.context.ClassifierUpdateContext;
+import br.com.douglas444.echo.interceptor.context.NovelClassEmergenceContext;
+import br.com.douglas444.echo.interceptor.ECHOInterceptor;
 import br.com.douglas444.mltk.clustering.kmeans.KMeansPlusPlus;
+import br.com.douglas444.mltk.clustering.kmeans.MCIKMeans;
+import br.com.douglas444.mltk.datastructure.Cluster;
 import br.com.douglas444.mltk.datastructure.DynamicConfusionMatrix;
+import br.com.douglas444.mltk.datastructure.ImpurityBasedCluster;
 import br.com.douglas444.mltk.datastructure.Sample;
 import br.com.douglas444.mltk.util.SampleDistanceComparator;
 import org.apache.commons.math3.distribution.BetaDistribution;
@@ -40,6 +46,8 @@ public class ECHO {
     private final Random random;
     private final DynamicConfusionMatrix confusionMatrix;
 
+    private final ECHOInterceptor interceptor;
+
     public ECHO(int q,
                 int k,
                 double gamma,
@@ -50,7 +58,8 @@ public class ECHO {
                 int confidenceWindowMaxSize,
                 int ensembleSize,
                 int randomGeneratorSeed,
-                int chunkSize) {
+                int chunkSize,
+                ECHOInterceptor interceptor) {
 
         this.q = q;
         this.k = k;
@@ -72,6 +81,7 @@ public class ECHO {
         this.noveltyCount = 0;
         this.classificationsCount = 0;
 
+        this.interceptor = (interceptor == null) ? new ECHOInterceptor() : interceptor;
         this.stat = new HashMap<>();
         this.filteredOutlierBuffer = new ArrayList<>();
         this.ensemble = new ArrayList<>();
@@ -348,23 +358,35 @@ public class ECHO {
         if (samples.size() >= this.q) {
 
             this.filteredOutlierBuffer.removeAll(samples);
+            final List<Cluster> clusters = KMeansPlusPlus.execute(samples, this.k, this.random);
 
-            final List<MicroCluster> microClusters = KMeansPlusPlus
-                    .execute(samples, this.k, this.random)
-                    .stream()
-                    .peek(cluster -> {
-                        for (Sample sample : cluster.getSamples()) {
-                            this.confusionMatrix.updatedDelayed(sample.getY(), this.noveltyCount, true);
-                        }
-                    })
-                    .map(cluster -> new MicroCluster(cluster, this.noveltyCount))
-                    .collect(Collectors.toList());
+            NovelClassEmergenceContext context = new NovelClassEmergenceContext();
+            context.setClusters(clusters);
+            context.setEnsemble(new ArrayList<>(this.ensemble));
+            context.setAddModel(this::addModel);
+            context.setAddNovelty(this::addNovelty);
+            context.setIncrementNoveltyCount(this::incrementNoveltyCount);
 
-            this.noveltyMicroClusters.addAll(microClusters);
+            this.interceptor.NOVEL_CLASS_EMERGENCE.with(context).executeOrDefault(() -> {
+                for (Cluster cluster : clusters) {
+                    this.addNovelty(cluster);
+                }
+                this.incrementNoveltyCount();
+            });
 
-            ++this.noveltyCount;
         }
 
+    }
+
+    public void addNovelty(Cluster cluster) {
+        this.noveltyMicroClusters.add(new MicroCluster(cluster, this.noveltyCount));
+        cluster.getSamples().forEach(sample -> {
+            this.confusionMatrix.updatedDelayed(sample.getY(), this.noveltyCount, true);
+        });
+    }
+
+    public void incrementNoveltyCount() {
+        ++this.noveltyCount;
     }
 
     private double calculateQNeighborhoodSilhouetteCoefficient(final Sample sample, final Model model, final int q) {
@@ -434,32 +456,60 @@ public class ECHO {
 
     private void updateClassifier(final int changePoint) {
 
-        final List<Classification> classifications = new ArrayList<>();
-
-        this.window.stream()
-                .filter(classification -> classification.getConfidence() >= this.activeLearningThreshold)
-                .forEach(classifications::add);
-
-        final List<Sample> labeledSamples = new ArrayList<>();
+        final List<Sample> samples = new ArrayList<>();
 
         this.window.stream()
                 .filter(classification -> classification.getConfidence() < this.activeLearningThreshold)
                 .map(Classification::getSample)
-                .forEach(labeledSamples::add);
+                .forEach(samples::add);
 
-        this.labeledSamplesCount += labeledSamples.size();
+        this.labeledSamplesCount += samples.size();
 
-        final Model model = Model.fit(labeledSamples, classifications, this.k, this.random);
+        this.window.stream()
+                .filter(classification -> classification.getConfidence() >= this.activeLearningThreshold)
+                .map(classification -> new Sample(classification.getSample().getX(), classification.getLabel()))
+                .forEach(samples::add);
+
+        final List<ImpurityBasedCluster> clusters = MCIKMeans
+                .execute(samples, new ArrayList<>(), this.k, this.random)
+                .stream()
+                .filter(cluster -> cluster.size() > 1)
+                .collect(Collectors.toList());
+
+        ClassifierUpdateContext context = new ClassifierUpdateContext();
+        context.setImpurityBasedClusters(clusters);
+        context.setEnsemble(new ArrayList<>(this.ensemble));
+        context.setAddModel(this::addModel);
+        context.setAddNovelty(this::addNovelty);
+        context.setIncrementNoveltyCount(this::incrementNoveltyCount);
+
+        this.interceptor.CLASSIFIER_UPDATE.with(context).executeOrDefault(() -> {
+
+            final List<PseudoPoint> pseudoPoints = clusters
+                    .stream()
+                    .map(PseudoPoint::new)
+                    .collect(Collectors.toList());
+
+            this.addModel(samples, pseudoPoints);
+        });
+
+
+        this.window.removeAll(this.window.subList(0, changePoint));
+
+    }
+
+    public void addModel(final List<Sample> labeledSamples, List<PseudoPoint> pseudoPoints) {
+
+        final Model model = Model.fit(labeledSamples, pseudoPoints);
 
         model.getKnownLabels().forEach((label) -> {
-            if (!confusionMatrix.isLabelKnown(label)) {
-                confusionMatrix.addKnownLabel(label);
+            if (!this.confusionMatrix.isLabelKnown(label)) {
+                this.confusionMatrix.addKnownLabel(label);
             }
         });
 
         this.ensemble.remove(0);
         this.ensemble.add(model);
-        this.window.removeAll(this.window.subList(0, changePoint));
         this.stat.clear();
 
     }

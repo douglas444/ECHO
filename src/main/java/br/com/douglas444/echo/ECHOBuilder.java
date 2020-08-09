@@ -1,6 +1,7 @@
 package br.com.douglas444.echo;
 
 import br.com.douglas444.dsframework.DSClassifierBuilder;
+import br.com.douglas444.echo.interceptor.ECHOInterceptor;
 
 public class ECHOBuilder  implements DSClassifierBuilder {
 
@@ -16,7 +17,8 @@ public class ECHOBuilder  implements DSClassifierBuilder {
                        int confidenceWindowMaxSize,
                        int ensembleSize,
                        int randomGeneratorSeed,
-                       int chunkSize) {
+                       int chunkSize,
+                       ECHOInterceptor interceptor) {
 
         echo = new ECHO(
                 q,
@@ -29,7 +31,8 @@ public class ECHOBuilder  implements DSClassifierBuilder {
                 confidenceWindowMaxSize,
                 ensembleSize,
                 randomGeneratorSeed,
-                chunkSize);
+                chunkSize,
+                interceptor);
 
     }
 

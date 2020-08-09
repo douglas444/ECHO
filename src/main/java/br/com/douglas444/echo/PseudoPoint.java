@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
-class PseudoPoint {
+public class PseudoPoint {
 
     private final Sample centroid;
     private final double radius;
@@ -17,7 +17,7 @@ class PseudoPoint {
     private final int numberOfSampleForMostFrequentLabel;
     private final Integer label;
 
-    PseudoPoint(ImpurityBasedCluster cluster) {
+    public PseudoPoint(ImpurityBasedCluster cluster) {
 
         cluster.getSamples().forEach(sample -> sample.setClusterId(null));
 
@@ -54,15 +54,15 @@ class PseudoPoint {
         return (double) this.numberOfSampleForMostFrequentLabel / this.totalNumberOfLabeledSamples;
     }
 
-    Sample getCentroid() {
+    public Sample getCentroid() {
         return centroid;
     }
 
-    Integer getLabel() {
+    public Integer getLabel() {
         return label;
     }
 
-    double getRadius() {
+    public double getRadius() {
         return radius;
     }
 
