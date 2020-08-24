@@ -43,6 +43,7 @@ public class ECHO {
     private final int confidenceWindowMaxSize;
     private final int ensembleSize;
     private final int chunkSize;
+    private final boolean keepNoveltyDecisionModel;
     private final Random random;
     private final DynamicConfusionMatrix confusionMatrix;
 
@@ -59,6 +60,7 @@ public class ECHO {
                 int ensembleSize,
                 int randomGeneratorSeed,
                 int chunkSize,
+                boolean keepNoveltyDecisionModel,
                 ECHOInterceptor interceptor) {
 
         this.q = q;
@@ -70,6 +72,7 @@ public class ECHO {
         this.filteredOutlierBufferMaxSize = filteredOutlierBufferMaxSize;
         this.confidenceWindowMaxSize = confidenceWindowMaxSize;
         this.ensembleSize = ensembleSize;
+        this.keepNoveltyDecisionModel = keepNoveltyDecisionModel;
         this.chunkSize = chunkSize;
         this.random = new Random(randomGeneratorSeed);
 
@@ -337,7 +340,7 @@ public class ECHO {
         return new BetaDistribution(alpha, beta);
     }
 
-    private void novelClassDetection() { ;
+    private void novelClassDetection() {
 
         this.filteredOutlierBuffer.removeIf(p -> p.getT() < this.timestamp - this.chunkSize);
 
@@ -366,6 +369,7 @@ public class ECHO {
             context.setAddModel(this::addModel);
             context.setAddNovelty(this::addNovelty);
             context.setIncrementNoveltyCount(this::incrementNoveltyCount);
+            context.setConfusionMatrix(this.confusionMatrix);
 
             this.interceptor.NOVEL_CLASS_EMERGENCE.with(context).executeOrDefault(() -> {
                 for (Cluster cluster : clusters) {
@@ -376,13 +380,6 @@ public class ECHO {
 
         }
 
-    }
-
-    public void addNovelty(Cluster cluster) {
-        this.noveltyMicroClusters.add(new MicroCluster(cluster, this.noveltyCount));
-        cluster.getSamples().forEach(sample -> {
-            this.confusionMatrix.updatedDelayed(sample.getY(), this.noveltyCount, true);
-        });
     }
 
     public void incrementNoveltyCount() {
@@ -512,6 +509,17 @@ public class ECHO {
         this.ensemble.add(model);
         this.stat.clear();
 
+    }
+
+    public void addNovelty(Cluster cluster) {
+
+        if (this.keepNoveltyDecisionModel) {
+            this.noveltyMicroClusters.add(new MicroCluster(cluster, this.noveltyCount));
+        }
+
+        cluster.getSamples().forEach(sample -> {
+            this.confusionMatrix.updatedDelayed(sample.getY(), this.noveltyCount, true);
+        });
     }
 
     private void warmUp(final Sample sample) {

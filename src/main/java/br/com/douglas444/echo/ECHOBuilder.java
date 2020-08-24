@@ -18,6 +18,7 @@ public class ECHOBuilder  implements DSClassifierBuilder {
                        int ensembleSize,
                        int randomGeneratorSeed,
                        int chunkSize,
+                       boolean keepNoveltyDecisionModel,
                        ECHOInterceptor interceptor) {
 
         echo = new ECHO(
@@ -32,6 +33,7 @@ public class ECHOBuilder  implements DSClassifierBuilder {
                 ensembleSize,
                 randomGeneratorSeed,
                 chunkSize,
+                keepNoveltyDecisionModel,
                 interceptor);
 
     }

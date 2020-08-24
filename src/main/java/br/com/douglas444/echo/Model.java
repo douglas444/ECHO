@@ -1,6 +1,5 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.mltk.clustering.kmeans.MCIKMeans;
 import br.com.douglas444.mltk.datastructure.Sample;
 
 import java.util.*;
@@ -14,7 +13,7 @@ public class Model {
     private final double accuracyAssociationCorrelation;
     private final double accuracyPurityCorrelation;
 
-    public Model(List<PseudoPoint> pseudoPoints,
+    private Model(List<PseudoPoint> pseudoPoints,
                   double accuracyAssociationCorrelation,
                   double accuracyPurityCorrelation,
                   HashSet<Integer> knownLabels) {
@@ -134,5 +133,9 @@ public class Model {
         return pseudoPoints.stream()
                 .map(PseudoPoint::getCentroid)
                 .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    public void merge(List<PseudoPoint> pseudoPoints) {
+        this.pseudoPoints.addAll(pseudoPoints);
     }
 }

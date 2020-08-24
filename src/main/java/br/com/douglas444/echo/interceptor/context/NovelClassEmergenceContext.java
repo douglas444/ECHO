@@ -4,6 +4,7 @@ import br.com.douglas444.dsframework.interceptor.Context;
 import br.com.douglas444.echo.Model;
 import br.com.douglas444.echo.PseudoPoint;
 import br.com.douglas444.mltk.datastructure.Cluster;
+import br.com.douglas444.mltk.datastructure.DynamicConfusionMatrix;
 import br.com.douglas444.mltk.datastructure.Sample;
 
 import java.util.List;
@@ -17,6 +18,7 @@ public class NovelClassEmergenceContext implements Context {
     private BiConsumer<List<Sample>, List<PseudoPoint>> addModel;
     private Consumer<Cluster> addNovelty;
     private Runnable incrementNoveltyCount;
+    private DynamicConfusionMatrix confusionMatrix;
 
     public void setClusters(List<Cluster> clusters) {
         this.clusters = clusters;
@@ -56,5 +58,13 @@ public class NovelClassEmergenceContext implements Context {
 
     public Runnable getIncrementNoveltyCount() {
         return incrementNoveltyCount;
+    }
+
+    public DynamicConfusionMatrix getConfusionMatrix() {
+        return confusionMatrix;
+    }
+
+    public void setConfusionMatrix(DynamicConfusionMatrix confusionMatrix) {
+        this.confusionMatrix = confusionMatrix;
     }
 }

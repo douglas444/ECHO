@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URL;
+import java.util.MissingResourceException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -26,6 +27,7 @@ public class ECHOTest {
     private static final int ENSEMBLE_SIZE = 5;
     private static final int RANDOM_GENERATOR_SEED = 0;
     private static final int CHUNK_SIZE = 2000;
+    private static final boolean KEEP_NOVELTY_DECISION_MODEL = true;
 
     @Test
     public void execute() throws IOException {
@@ -42,25 +44,28 @@ public class ECHOTest {
                 ENSEMBLE_SIZE,
                 RANDOM_GENERATOR_SEED,
                 CHUNK_SIZE,
+                KEEP_NOVELTY_DECISION_MODEL,
                 null);
 
         final ECHOController echoController = echoBuilder.build();
 
         URL url = getClass().getClassLoader().getResource("MOA3_fold1_ini");
-        assert url != null;
-        File file = new File(url.getFile());
-
-        FileReader fileReader = new FileReader(file);
-        DSFileReader dsFileReader = new DSFileReader(",", fileReader);
-        DSClassifierExecutor.start(echoController, dsFileReader, false);
+        if (url == null) {
+            throw new MissingResourceException("File not found", ECHOTest.class.getName(), "MOA3_fold1_ini");
+        }
+        File file1 = new File(url.getFile());
+        FileReader fileReader1 = new FileReader(file1);
 
         url = getClass().getClassLoader().getResource("MOA3_fold1_onl");
-        assert url != null;
-        file = new File(url.getFile());
+        if (url == null) {
+            throw new MissingResourceException("File not found", ECHOTest.class.getName(), "MOA3_fold1_onl");
+        }
+        File file2 = new File(url.getFile());
+        FileReader fileReader2 = new FileReader(file2);
 
-        fileReader = new FileReader(file);
-        dsFileReader = new DSFileReader(",", fileReader);
-        DSClassifierExecutor.start(echoController, dsFileReader, true, 1);
+        DSClassifierExecutor.start(echoController, true, 10000,
+                new DSFileReader(",", fileReader1), new DSFileReader(",", fileReader2));
+
 
         //Asserting UnkR
         double unkR = echoController.getDynamicConfusionMatrix().unkR();
@@ -78,6 +83,7 @@ public class ECHOTest {
         assertEquals(4, echoController.getNoveltyCount(),
                 "The final value of Novelty Count differs from the expected for the dataset " +
                         "MOA3_fold1 with the following parameters configuration:\n" + parameters());
+
 
     }
 
