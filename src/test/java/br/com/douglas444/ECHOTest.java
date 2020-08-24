@@ -68,13 +68,13 @@ public class ECHOTest {
 
 
         //Asserting UnkR
-        double unkR = echoController.getDynamicConfusionMatrix().unkR();
+        double unkR = echoController.getDynamicConfusionMatrix().measureUnkR();
         unkR = (double) Math.round(unkR * 10000) / 10000;
         assertEquals(0.1067, unkR, "The final value of UnkR differs from the expected " +
                 "for the dataset MOA3_fold1 with the following parameters configuration:\n" + parameters());
 
         //Asserting CER
-        double cer = echoController.getDynamicConfusionMatrix().cer();
+        double cer = echoController.getDynamicConfusionMatrix().measureCER();
         cer = (double) Math.round(cer * 10000) / 10000;
         assertEquals(0.0077, cer, "The final value of CER differs from the expected for the " +
                 "dataset MOA3_fold1 with the following parameters configuration:\n" + parameters());

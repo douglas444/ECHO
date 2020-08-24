@@ -20,40 +20,49 @@ public class NovelClassEmergenceContext implements Context {
     private Runnable incrementNoveltyCount;
     private DynamicConfusionMatrix confusionMatrix;
 
-    public void setClusters(List<Cluster> clusters) {
+    public NovelClassEmergenceContext NovelClassEmergenceContext() {
+        return this;
+    }
+
+    public NovelClassEmergenceContext setClusters(List<Cluster> clusters) {
         this.clusters = clusters;
+        return this;
     }
 
     public List<Cluster> getClusters() {
         return clusters;
     }
 
-    public void setEnsemble(List<Model> ensemble) {
+    public NovelClassEmergenceContext setEnsemble(List<Model> ensemble) {
         this.ensemble = ensemble;
+        return this;
     }
 
     public List<Model> getEnsemble() {
         return ensemble;
     }
 
-    public void setAddModel(BiConsumer<List<Sample>, List<PseudoPoint>> addModel) {
+    public NovelClassEmergenceContext setAddModel(BiConsumer<List<Sample>, List<PseudoPoint>> addModel) {
         this.addModel = addModel;
+        return this;
     }
 
     public BiConsumer<List<Sample>, List<PseudoPoint>> getAddModel() {
         return addModel;
     }
 
-    public void setAddNovelty(Consumer<Cluster> addNovelty) {
+    public NovelClassEmergenceContext setAddNovelty(Consumer<Cluster> addNovelty) {
         this.addNovelty = addNovelty;
+        return this;
     }
 
     public Consumer<Cluster> getAddNovelty() {
         return addNovelty;
     }
 
-    public void setIncrementNoveltyCount(Runnable incrementNoveltyCount) {
+    public NovelClassEmergenceContext setIncrementNoveltyCount(Runnable incrementNoveltyCount) {
         this.incrementNoveltyCount = incrementNoveltyCount;
+        return this;
     }
 
     public Runnable getIncrementNoveltyCount() {
@@ -64,7 +73,8 @@ public class NovelClassEmergenceContext implements Context {
         return confusionMatrix;
     }
 
-    public void setConfusionMatrix(DynamicConfusionMatrix confusionMatrix) {
+    public NovelClassEmergenceContext setConfusionMatrix(DynamicConfusionMatrix confusionMatrix) {
         this.confusionMatrix = confusionMatrix;
+        return this;
     }
 }

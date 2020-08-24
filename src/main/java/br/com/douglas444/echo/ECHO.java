@@ -363,13 +363,13 @@ public class ECHO {
             this.filteredOutlierBuffer.removeAll(samples);
             final List<Cluster> clusters = KMeansPlusPlus.execute(samples, this.k, this.random);
 
-            NovelClassEmergenceContext context = new NovelClassEmergenceContext();
-            context.setClusters(clusters);
-            context.setEnsemble(new ArrayList<>(this.ensemble));
-            context.setAddModel(this::addModel);
-            context.setAddNovelty(this::addNovelty);
-            context.setIncrementNoveltyCount(this::incrementNoveltyCount);
-            context.setConfusionMatrix(this.confusionMatrix);
+            NovelClassEmergenceContext context = new NovelClassEmergenceContext()
+                    .setClusters(clusters)
+                    .setEnsemble(new ArrayList<>(this.ensemble))
+                    .setAddModel(this::addModel)
+                    .setAddNovelty(this::addNovelty)
+                    .setIncrementNoveltyCount(this::incrementNoveltyCount)
+                    .setConfusionMatrix(this.confusionMatrix);
 
             this.interceptor.NOVEL_CLASS_EMERGENCE.with(context).executeOrDefault(() -> {
                 for (Cluster cluster : clusters) {
@@ -473,12 +473,12 @@ public class ECHO {
                 .filter(cluster -> cluster.size() > 1)
                 .collect(Collectors.toList());
 
-        ClassifierUpdateContext context = new ClassifierUpdateContext();
-        context.setImpurityBasedClusters(clusters);
-        context.setEnsemble(new ArrayList<>(this.ensemble));
-        context.setAddModel(this::addModel);
-        context.setAddNovelty(this::addNovelty);
-        context.setIncrementNoveltyCount(this::incrementNoveltyCount);
+        ClassifierUpdateContext context = new ClassifierUpdateContext()
+                .setImpurityBasedClusters(clusters)
+                .setEnsemble(new ArrayList<>(this.ensemble))
+                .setAddModel(this::addModel)
+                .setAddNovelty(this::addNovelty)
+                .setIncrementNoveltyCount(this::incrementNoveltyCount);
 
         this.interceptor.CLASSIFIER_UPDATE.with(context).executeOrDefault(() -> {
 
@@ -558,11 +558,11 @@ public class ECHO {
     }
 
     public double calculateCER() {
-        return this.confusionMatrix.cer();
+        return this.confusionMatrix.measureCER();
     }
 
     public double calculateUnkR() {
-        return this.confusionMatrix.unkR();
+        return this.confusionMatrix.measureUnkR();
     }
 
     public int getNoveltyCount() {

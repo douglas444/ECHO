@@ -20,39 +20,49 @@ public class ClassifierUpdateContext implements Context {
     private Consumer<Cluster> addNovelty;
     private Runnable incrementNoveltyCount;
 
-    public void setImpurityBasedClusters(List<ImpurityBasedCluster> impurityBasedClusters) {
+    public ClassifierUpdateContext ClassifierUpdateContext() {
+        return this;
+    }
+
+    public ClassifierUpdateContext setImpurityBasedClusters(List<ImpurityBasedCluster> impurityBasedClusters) {
         this.impurityBasedClusters = impurityBasedClusters;
+        return this;
     }
 
     public List<ImpurityBasedCluster> getImpurityBasedClusters() {
         return impurityBasedClusters;
     }
 
-    public void setEnsemble(List<Model> ensemble) {
+    public ClassifierUpdateContext setEnsemble(List<Model> ensemble) {
         this.ensemble = ensemble;
+        return this;
     }
 
     public List<Model> getEnsemble() {
         return ensemble;
     }
-    public void setAddModel(BiConsumer<List<Sample>, List<PseudoPoint>> addModel) {
+
+    public ClassifierUpdateContext setAddModel(BiConsumer<List<Sample>, List<PseudoPoint>> addModel) {
         this.addModel = addModel;
+        return this;
     }
 
     public BiConsumer<List<Sample>, List<PseudoPoint>> getAddModel() {
         return addModel;
     }
 
-    public void setAddNovelty(Consumer<Cluster> addNovelty) {
+    public ClassifierUpdateContext setAddNovelty(Consumer<Cluster> addNovelty) {
         this.addNovelty = addNovelty;
+        return this;
     }
 
     public Consumer<Cluster> getAddNovelty() {
         return addNovelty;
     }
 
-    public void setIncrementNoveltyCount(Runnable incrementNoveltyCount) {
+    public ClassifierUpdateContext setIncrementNoveltyCount(Runnable incrementNoveltyCount) {
         this.incrementNoveltyCount = incrementNoveltyCount;
+        return this;
     }
 
     public Runnable getIncrementNoveltyCount() {
