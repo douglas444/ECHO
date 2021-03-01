@@ -1,9 +1,7 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.mltk.datastructure.Cluster;
-import br.com.douglas444.mltk.datastructure.ImpurityBasedCluster;
-import br.com.douglas444.mltk.datastructure.Sample;
-import br.com.douglas444.mltk.util.SampleDistanceComparator;
+import br.com.douglas444.ndc.datastructures.Sample;
+import br.com.douglas444.ndc.datastructures.SampleDistanceComparator;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +17,7 @@ public class PseudoPoint {
 
     public PseudoPoint(ImpurityBasedCluster cluster) {
 
-        cluster.getSamples().forEach(sample -> sample.setClusterId(null));
+        cluster.getSamples().forEach(sample -> sample.setId(null));
 
         this.centroid = cluster.getCentroid();
         this.radius = 2 * cluster.calculateStandardDeviation();

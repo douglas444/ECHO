@@ -1,9 +1,9 @@
 package br.com.douglas444;
 
-import br.com.douglas444.dsframework.DSClassifierExecutor;
-import br.com.douglas444.dsframework.DSFileReader;
 import br.com.douglas444.echo.ECHOBuilder;
 import br.com.douglas444.echo.ECHOController;
+import br.com.douglas444.ndc.StreamsFileReader;
+import br.com.douglas444.ndc.processor.StreamsProcessorExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -44,8 +44,7 @@ public class ECHOTest {
                 ENSEMBLE_SIZE,
                 RANDOM_GENERATOR_SEED,
                 CHUNK_SIZE,
-                KEEP_NOVELTY_DECISION_MODEL,
-                null);
+                KEEP_NOVELTY_DECISION_MODEL);
 
         final ECHOController echoController = echoBuilder.build();
 
@@ -63,8 +62,11 @@ public class ECHOTest {
         File file2 = new File(url.getFile());
         FileReader fileReader2 = new FileReader(file2);
 
-        DSClassifierExecutor.start(echoController, true, 10000,
-                new DSFileReader(",", fileReader1), new DSFileReader(",", fileReader2));
+        new StreamsProcessorExecutor().start(
+                echoController,
+                10000,
+                new StreamsFileReader(",", fileReader1),
+                new StreamsFileReader(",", fileReader2));
 
 
         //Asserting UnkR

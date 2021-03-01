@@ -1,18 +1,16 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.mltk.datastructure.Cluster;
-import br.com.douglas444.mltk.datastructure.Sample;
-import br.com.douglas444.mltk.util.SampleDistanceComparator;
+import br.com.douglas444.ndc.datastructures.Cluster;
+import br.com.douglas444.ndc.datastructures.Sample;
+import br.com.douglas444.ndc.datastructures.SampleDistanceComparator;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class MicroCluster {
 
-    private Integer label;
+    private final Integer label;
     private int n;
     private final double[] ls;
     private final double[] ss;

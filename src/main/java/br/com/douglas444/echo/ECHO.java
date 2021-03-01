@@ -1,15 +1,10 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.echo.interceptor.context.ClassifierUpdateContext;
-import br.com.douglas444.echo.interceptor.context.NovelClassEmergenceContext;
-import br.com.douglas444.echo.interceptor.ECHOInterceptor;
-import br.com.douglas444.mltk.clustering.kmeans.KMeansPlusPlus;
-import br.com.douglas444.mltk.clustering.kmeans.MCIKMeans;
-import br.com.douglas444.mltk.datastructure.Cluster;
-import br.com.douglas444.mltk.datastructure.DynamicConfusionMatrix;
-import br.com.douglas444.mltk.datastructure.ImpurityBasedCluster;
-import br.com.douglas444.mltk.datastructure.Sample;
-import br.com.douglas444.mltk.util.SampleDistanceComparator;
+import br.com.douglas444.ndc.algorithms.KMeansPlusPlus;
+import br.com.douglas444.ndc.datastructures.Cluster;
+import br.com.douglas444.ndc.datastructures.DynamicConfusionMatrix;
+import br.com.douglas444.ndc.datastructures.Sample;
+import br.com.douglas444.ndc.datastructures.SampleDistanceComparator;
 import org.apache.commons.math3.distribution.BetaDistribution;
 
 import java.util.*;
@@ -47,8 +42,6 @@ public class ECHO {
     private final Random random;
     private final DynamicConfusionMatrix confusionMatrix;
 
-    private final ECHOInterceptor interceptor;
-
     public ECHO(int q,
                 int k,
                 double gamma,
@@ -60,8 +53,7 @@ public class ECHO {
                 int ensembleSize,
                 int randomGeneratorSeed,
                 int chunkSize,
-                boolean keepNoveltyDecisionModel,
-                ECHOInterceptor interceptor) {
+                boolean keepNoveltyDecisionModel) {
 
         this.q = q;
         this.k = k;
@@ -84,7 +76,6 @@ public class ECHO {
         this.noveltyCount = 0;
         this.classificationsCount = 0;
 
-        this.interceptor = (interceptor == null) ? new ECHOInterceptor() : interceptor;
         this.stat = new HashMap<>();
         this.filteredOutlierBuffer = new ArrayList<>();
         this.ensemble = new ArrayList<>();
@@ -363,20 +354,10 @@ public class ECHO {
             this.filteredOutlierBuffer.removeAll(samples);
             final List<Cluster> clusters = KMeansPlusPlus.execute(samples, this.k, this.random);
 
-            NovelClassEmergenceContext context = new NovelClassEmergenceContext()
-                    .setClusters(clusters)
-                    .setEnsemble(new ArrayList<>(this.ensemble))
-                    .setAddModel(this::addModel)
-                    .setAddNovelty(this::addNovelty)
-                    .setIncrementNoveltyCount(this::incrementNoveltyCount)
-                    .setConfusionMatrix(this.confusionMatrix);
-
-            this.interceptor.NOVEL_CLASS_EMERGENCE.with(context).executeOrDefault(() -> {
-                for (Cluster cluster : clusters) {
-                    this.addNovelty(cluster);
-                }
-                this.incrementNoveltyCount();
-            });
+            for (Cluster cluster : clusters) {
+                this.addNovelty(cluster);
+            }
+            this.incrementNoveltyCount();
 
         }
 
@@ -473,23 +454,12 @@ public class ECHO {
                 .filter(cluster -> cluster.size() > 1)
                 .collect(Collectors.toList());
 
-        ClassifierUpdateContext context = new ClassifierUpdateContext()
-                .setImpurityBasedClusters(clusters)
-                .setEnsemble(new ArrayList<>(this.ensemble))
-                .setAddModel(this::addModel)
-                .setAddNovelty(this::addNovelty)
-                .setIncrementNoveltyCount(this::incrementNoveltyCount);
+        final List<PseudoPoint> pseudoPoints = clusters
+                .stream()
+                .map(PseudoPoint::new)
+                .collect(Collectors.toList());
 
-        this.interceptor.CLASSIFIER_UPDATE.with(context).executeOrDefault(() -> {
-
-            final List<PseudoPoint> pseudoPoints = clusters
-                    .stream()
-                    .map(PseudoPoint::new)
-                    .collect(Collectors.toList());
-
-            this.addModel(samples, pseudoPoints);
-        });
-
+        this.addModel(samples, pseudoPoints);
 
         this.window.removeAll(this.window.subList(0, changePoint));
 

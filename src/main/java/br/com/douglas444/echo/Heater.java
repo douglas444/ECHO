@@ -1,7 +1,6 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.mltk.clustering.kmeans.MCIKMeans;
-import br.com.douglas444.mltk.datastructure.Sample;
+import br.com.douglas444.ndc.datastructures.Sample;
 
 import java.util.ArrayList;
 import java.util.List;

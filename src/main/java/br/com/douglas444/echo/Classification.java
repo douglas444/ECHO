@@ -1,6 +1,6 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.mltk.datastructure.Sample;
+import br.com.douglas444.ndc.datastructures.Sample;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,11 @@ class Classification {
     private final double confidence;
     private final Sample sample;
 
-    Classification(Integer label, Sample sample, double confidence, boolean explained, boolean novelty) {
+    Classification(Integer label,
+                   Sample sample,
+                   double confidence,
+                   boolean explained,
+                   boolean novelty) {
 
         if (explained && label == null) {
             throw new IllegalArgumentException();

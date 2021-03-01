@@ -1,9 +1,8 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.dsframework.DSClassifierBuilder;
-import br.com.douglas444.echo.interceptor.ECHOInterceptor;
+import br.com.douglas444.ndc.processor.StreamsProcessorBuilder;
 
-public class ECHOBuilder  implements DSClassifierBuilder {
+public class ECHOBuilder implements StreamsProcessorBuilder {
 
     private final ECHO echo;
 
@@ -18,8 +17,7 @@ public class ECHOBuilder  implements DSClassifierBuilder {
                        int ensembleSize,
                        int randomGeneratorSeed,
                        int chunkSize,
-                       boolean keepNoveltyDecisionModel,
-                       ECHOInterceptor interceptor) {
+                       boolean keepNoveltyDecisionModel) {
 
         echo = new ECHO(
                 q,
@@ -33,8 +31,7 @@ public class ECHOBuilder  implements DSClassifierBuilder {
                 ensembleSize,
                 randomGeneratorSeed,
                 chunkSize,
-                keepNoveltyDecisionModel,
-                interceptor);
+                keepNoveltyDecisionModel);
 
     }
 
@@ -42,4 +39,5 @@ public class ECHOBuilder  implements DSClassifierBuilder {
     public ECHOController build() {
         return new ECHOController(echo);
     }
+
 }

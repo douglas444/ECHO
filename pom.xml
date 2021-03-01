@@ -16,13 +16,8 @@
     <dependencies>
         <dependency>
             <groupId>br.com.douglas444</groupId>
-            <artifactId>ds-framework</artifactId>
-            <version>1.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>br.com.douglas444</groupId>
-            <artifactId>mltk</artifactId>
-            <version>1.1-SNAPSHOT</version>
+            <artifactId>novelty-detection-commons</artifactId>
+            <version>2.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -43,7 +38,6 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.2</version>
             </plugin>
-            <!--Apache Maven Compiler Plugin-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
