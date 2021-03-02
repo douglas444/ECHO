@@ -135,4 +135,7 @@ public class Model {
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
+    public List<PseudoPoint> getPseudoPoints() {
+        return pseudoPoints;
+    }
 }

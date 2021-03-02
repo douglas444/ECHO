@@ -5,6 +5,9 @@ import br.com.douglas444.ndc.datastructures.Cluster;
 import br.com.douglas444.ndc.datastructures.DynamicConfusionMatrix;
 import br.com.douglas444.ndc.datastructures.Sample;
 import br.com.douglas444.ndc.datastructures.SampleDistanceComparator;
+import br.ufu.facom.pcf.core.Category;
+import br.ufu.facom.pcf.core.Context;
+import br.ufu.facom.pcf.core.Interceptor;
 import org.apache.commons.math3.distribution.BetaDistribution;
 
 import java.util.*;
@@ -42,6 +45,8 @@ public class ECHO {
     private final Random random;
     private final DynamicConfusionMatrix confusionMatrix;
 
+    private Interceptor interceptor;
+
     public ECHO(int q,
                 int k,
                 double gamma,
@@ -53,7 +58,8 @@ public class ECHO {
                 int ensembleSize,
                 int randomGeneratorSeed,
                 int chunkSize,
-                boolean keepNoveltyDecisionModel) {
+                boolean keepNoveltyDecisionModel,
+                Interceptor interceptor) {
 
         this.q = q;
         this.k = k;
@@ -84,6 +90,7 @@ public class ECHO {
         this.heater = new Heater(chunkSize, this.k, this.random);
 
         this.confusionMatrix = new DynamicConfusionMatrix();
+        this.interceptor = interceptor;
 
     }
 
@@ -355,8 +362,15 @@ public class ECHO {
             final List<Cluster> clusters = KMeansPlusPlus.execute(samples, this.k, this.random);
 
             for (Cluster cluster : clusters) {
+
+                if (this.interceptor != null) {
+                    final Context context = PCF.buildContext(cluster, Category.NOVELTY, ensemble);
+                    this.interceptor.intercept(context);
+                }
+
                 this.addNovelty(cluster);
             }
+
             this.incrementNoveltyCount();
 
         }
@@ -454,6 +468,14 @@ public class ECHO {
                 .filter(cluster -> cluster.size() > 1)
                 .collect(Collectors.toList());
 
+        if (this.interceptor != null) {
+
+            for (ImpurityBasedCluster cluster : clusters) {
+                final Context context = PCF.buildContext(cluster, this.ensemble);
+                this.interceptor.intercept(context);
+            }
+        }
+
         final List<PseudoPoint> pseudoPoints = clusters
                 .stream()
                 .map(PseudoPoint::new)
@@ -474,7 +496,6 @@ public class ECHO {
                 this.confusionMatrix.addKnownLabel(label);
             }
         });
-
         this.ensemble.remove(0);
         this.ensemble.add(model);
         this.stat.clear();
