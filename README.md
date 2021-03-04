@@ -2,7 +2,9 @@
 
 Semi-supervised framework for classifying evolving data streams
 
-Haque, A., Khan, L., Baron, M., Thuraisingham, B., & Aggarwal, C. (2016, May). Efficient handling of concept drift and concept evolution over stream data. In 2016 IEEE 32nd International Conference on Data Engineering (ICDE) (pp. 481-492). IEEE.
+Haque, A., Khan, L., Baron, M., Thuraisingham, B., & Aggarwal, C. (2016, May). 
+Efficient handling of concept drift and concept evolution over stream data. 
+In 2016 IEEE 32nd International Conference on Data Engineering (ICDE) (pp. 481-492). IEEE.
 
 This implementation is compatible with *pcf*'s 
 *Interceptable* interface (https://github.com/douglas444/pcf).
@@ -22,7 +24,7 @@ This implementation is compatible with *pcf*'s
 ## How to use *echo* as a *Maven* dependency?
 
 First you need to install *echo* at your *Maven Local Repository*. 
-This can be done by executing the following command line: 
+This can be done by executing the following command line from the root folder: 
 
 ```
 mvn clean install
@@ -63,7 +65,7 @@ Once the process is finished, the JAR will be available at the ```target``` fold
 ```echo.jar``` or ```echo-jar-with-dependencies.jar```.
 
 Once you have the JAR, load it in the classpath section of the *pcf-gui*. After that, 
-the class *ECHOInterceptable* should be listed at the interface.
+the class *ECHOInterceptable* should be listed in the graphical interface.
 
 ### Observations:
 
@@ -71,9 +73,9 @@ the class *ECHOInterceptable* should be listed at the interface.
 even if you choose to build with the dependencies included, 
 the *pcf-core* dependency will not be included. 
 The reason is that the *pcf-core* dependency is already provided 
-by the *pcf-gui* when the JAR is loaded through the interface.
+by the *pcf-gui* when the JAR is loaded through the graphical interface.
 
 * If you choose to build the project without the dependencies 
 included, make sure to load all the dependencies' JAR
-individually at the *pcf-gui* interface. There is no need to load the *pcf-core*
+individually at the *pcf-gui* graphical interface. There is no need to load the *pcf-core*
 dependency though, since it is already provided by the *pcf-gui*.
