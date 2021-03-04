@@ -21,7 +21,7 @@ This implementation is compatible with *pcf*'s
 * JUnit Jupiter API 5.6.2 (available at Maven Central Repository)
 * Apache Commons Math 3.6.1 (available at Maven Central Repository)
 
-## How to use *echo* as a *Maven* dependency?
+## How to use *echo* as a *Maven* dependency
 
 First you need to install *echo* at your *Maven Local Repository*. 
 This can be done by executing the following command line from the root folder: 
@@ -45,7 +45,7 @@ to your project's pom.xml file (edit the version if necessary):
 For an example of how to use *echo* in your code, check out the file 
 ```src/test/java/br/com/douglas444/echo/ECHOTest.java```.
 
-## How to use *echo* with *pcf-gui*?
+## How to use *echo* with *pcf-gui*
 
 First of all you need to build the project's JAR.
 This can be done by executing the following command line from the root folder:
