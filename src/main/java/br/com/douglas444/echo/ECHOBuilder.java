@@ -1,6 +1,6 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.ndc.processor.StreamsProcessorBuilder;
+import br.com.douglas444.streams.processor.StreamsProcessorBuilder;
 import br.ufu.facom.pcf.core.Interceptor;
 
 public class ECHOBuilder implements StreamsProcessorBuilder {

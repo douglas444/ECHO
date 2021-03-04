@@ -1,10 +1,10 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.ndc.algorithms.KMeansPlusPlus;
-import br.com.douglas444.ndc.datastructures.Cluster;
-import br.com.douglas444.ndc.datastructures.DynamicConfusionMatrix;
-import br.com.douglas444.ndc.datastructures.Sample;
-import br.com.douglas444.ndc.datastructures.SampleDistanceComparator;
+import br.com.douglas444.streams.algorithms.KMeansPlusPlus;
+import br.com.douglas444.streams.datastructures.Cluster;
+import br.com.douglas444.streams.datastructures.DynamicConfusionMatrix;
+import br.com.douglas444.streams.datastructures.Sample;
+import br.com.douglas444.streams.datastructures.SampleDistanceComparator;
 import br.ufu.facom.pcf.core.Category;
 import br.ufu.facom.pcf.core.Context;
 import br.ufu.facom.pcf.core.Interceptor;
@@ -455,6 +455,8 @@ public class ECHO {
                 .map(Classification::getSample)
                 .forEach(samples::add);
 
+        final Set<Sample> labeledSamples = new HashSet<>(samples);
+
         this.labeledSamplesCount += samples.size();
 
         this.window.stream()
@@ -469,10 +471,18 @@ public class ECHO {
                 .collect(Collectors.toList());
 
         if (this.interceptor != null) {
-
             for (ImpurityBasedCluster cluster : clusters) {
-                final Context context = PCF.buildContext(cluster, this.ensemble);
-                this.interceptor.intercept(context);
+
+                final long numberOfLabeledSamples = cluster
+                        .getSamples()
+                        .stream()
+                        .filter(labeledSamples::contains)
+                        .count();
+
+                if (2 * numberOfLabeledSamples < cluster.getSamples().size()) {
+                    final Context context = PCF.buildContext(cluster, labeledSamples, this.ensemble);
+                    this.interceptor.intercept(context);
+                }
             }
         }
 

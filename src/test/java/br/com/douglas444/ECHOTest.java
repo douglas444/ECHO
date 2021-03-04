@@ -2,8 +2,8 @@ package br.com.douglas444;
 
 import br.com.douglas444.echo.ECHOBuilder;
 import br.com.douglas444.echo.ECHOController;
-import br.com.douglas444.ndc.StreamsFileReader;
-import br.com.douglas444.ndc.processor.StreamsProcessorExecutor;
+import br.com.douglas444.streams.processor.StreamsFileReader;
+import br.com.douglas444.streams.processor.StreamsProcessorExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;

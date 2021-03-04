@@ -1,7 +1,7 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.ndc.algorithms.KMeans;
-import br.com.douglas444.ndc.datastructures.Sample;
+import br.com.douglas444.streams.algorithms.KMeans;
+import br.com.douglas444.streams.datastructures.Sample;
 
 import java.util.*;
 

@@ -1,12 +1,13 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.ndc.datastructures.DynamicConfusionMatrix;
-import br.com.douglas444.ndc.datastructures.Sample;
-import br.com.douglas444.ndc.processor.StreamsProcessor;
+import br.com.douglas444.streams.datastructures.DynamicConfusionMatrix;
+import br.com.douglas444.streams.datastructures.DynamicConfusionMatrixCompatible;
+import br.com.douglas444.streams.datastructures.Sample;
+import br.com.douglas444.streams.processor.StreamsProcessor;
 
 import java.util.Optional;
 
-public class ECHOController implements StreamsProcessor {
+public class ECHOController implements StreamsProcessor, DynamicConfusionMatrixCompatible {
 
     private final ECHO echo;
 
@@ -34,10 +35,10 @@ public class ECHOController implements StreamsProcessor {
                 this.echo.getConceptDriftsCount(),
                 this.echo.calculateCER(),
                 this.echo.calculateUnkR(),
-                this.echo.getNoveltyCount())
-                + "\n" + echo.getConfusionMatrix().toString();
+                this.echo.getNoveltyCount());
     }
 
+    @Override
     public DynamicConfusionMatrix getDynamicConfusionMatrix() {
         return this.echo.getConfusionMatrix();
     }

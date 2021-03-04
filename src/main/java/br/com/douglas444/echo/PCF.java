@@ -1,15 +1,12 @@
 package br.com.douglas444.echo;
 
-import br.com.douglas444.ndc.datastructures.Cluster;
-import br.com.douglas444.ndc.datastructures.Sample;
+import br.com.douglas444.streams.datastructures.Cluster;
+import br.com.douglas444.streams.datastructures.Sample;
 import br.ufu.facom.pcf.core.Category;
 import br.ufu.facom.pcf.core.ClusterSummary;
 import br.ufu.facom.pcf.core.Context;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class PCF {
@@ -22,16 +19,19 @@ public class PCF {
         return buildContext(
                 pattern,
                 null,
+                null,
                 category,
                 ensemble);
 
     }
 
     public static Context buildContext(final ImpurityBasedCluster pattern,
+                                       final Set<Sample> labeledSamples,
                                        final List<Model> ensemble) {
 
         return buildContext(
                 new Cluster(pattern.getSamples()),
+                labeledSamples,
                 pattern.getMostFrequentLabel(),
                 null,
                 ensemble);
@@ -39,6 +39,7 @@ public class PCF {
     }
 
     public static Context buildContext(final Cluster pattern,
+                                       final Set<Sample> labeledSamples,
                                        final Integer label,
                                        final Category category,
                                        final List<Model> ensemble) {
@@ -50,6 +51,7 @@ public class PCF {
                 .forEach(knownLabels::addAll);
 
         final Context context = new Context();
+
         context.setPatternClusterSummary(toClusterSummary(pattern, label));
         context.setKnownLabels(knownLabels);
 
@@ -76,23 +78,26 @@ public class PCF {
 
         context.setClusterSummaries(knownClusterSummaries);
 
-        context.setSamplesAttributes(samples
-                .stream()
-                .map(Sample::getX)
-                .map(double[]::clone)
-                .collect(Collectors.toList()));
+        final double[][] samplesAttributes = new double[samples.size()][];
+        final int[] samplesLabels = new int[samples.size()];
+        final boolean[] isPreLabeled = new boolean[samples.size()];
 
-        context.setSamplesLabels(samples
-                .stream()
-                .map(Sample::getY)
-                .collect(Collectors.toList()));
+        for (int i = 0; i < samples.size(); i++) {
+            samplesAttributes[i] = samples.get(i).getX().clone();
+            samplesLabels[i] = samples.get(i).getY();
+            isPreLabeled[i] = labeledSamples != null && labeledSamples.contains(samples.get(i));
+        }
 
-        if (category == null && knownLabels.contains(label)) {
-            context.setPredictedCategory(Category.KNOWN);
-        } else if (category == null) {
-            context.setPredictedCategory(Category.NOVELTY);
-        } else {
+        context.setSamplesAttributes(samplesAttributes);
+        context.setSamplesLabels(samplesLabels);
+        context.setIsPreLabeled(isPreLabeled);
+
+        if (category != null) {
             context.setPredictedCategory(category);
+        } else if (knownLabels.contains(label)) {
+            context.setPredictedCategory(Category.KNOWN);
+        } else {
+            context.setPredictedCategory(Category.NOVELTY);
         }
 
         return context;
