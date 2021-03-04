@@ -9,13 +9,14 @@ This implementation is compatible with pcf's Interceptable (https://github.com/d
 ## Requirements
 
 * Apache Maven 3.6.3 or higher
+* Java 8
 
 ## Maven Dependencies
 
 * streams 1.0-SNAPSHOT (https://github.com/douglas444/streams)
 * pcf-core 1.0-SNAPSHOT (https://github.com/douglas444/pcf)
-* junit-jupiter 5.6.2 (available at Maven Central Repository)
-* commons-math3 3.6.1 (available at Maven Central Repository)
+* JUnit Jupiter API 5.6.2 (available at Maven Central Repository)
+* Apache Commons Math 3.6.1 (available at Maven Central Repository)
 
 ## How do I install echo at my local maven repository?
 
