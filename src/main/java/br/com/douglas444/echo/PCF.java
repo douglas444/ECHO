@@ -6,7 +6,10 @@ import br.ufu.facom.pcf.core.Category;
 import br.ufu.facom.pcf.core.ClusterSummary;
 import br.ufu.facom.pcf.core.Context;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class PCF {

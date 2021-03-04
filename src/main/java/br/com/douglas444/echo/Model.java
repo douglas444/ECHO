@@ -2,7 +2,10 @@ package br.com.douglas444.echo;
 
 import br.com.douglas444.streams.datastructures.Sample;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
