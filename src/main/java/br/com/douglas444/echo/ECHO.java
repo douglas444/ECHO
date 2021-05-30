@@ -6,6 +6,7 @@ import br.com.douglas444.streams.datastructures.DynamicConfusionMatrix;
 import br.com.douglas444.streams.datastructures.Sample;
 import br.com.douglas444.streams.datastructures.SampleDistanceComparator;
 import br.ufu.facom.pcf.core.Category;
+import br.ufu.facom.pcf.core.ClusterSummary;
 import br.ufu.facom.pcf.core.Context;
 import br.ufu.facom.pcf.core.Interceptor;
 import org.apache.commons.math3.distribution.BetaDistribution;
@@ -44,8 +45,9 @@ public class ECHO {
     private final boolean keepNoveltyDecisionModel;
     private final Random random;
     private final DynamicConfusionMatrix confusionMatrix;
+    private final boolean multiClassNoveltyDetection;
 
-    private Interceptor interceptor;
+    private final Interceptor interceptor;
 
     public ECHO(int q,
                 int k,
@@ -59,6 +61,7 @@ public class ECHO {
                 int randomGeneratorSeed,
                 int chunkSize,
                 boolean keepNoveltyDecisionModel,
+                boolean multiClassNoveltyDetection,
                 Interceptor interceptor) {
 
         this.q = q;
@@ -73,6 +76,7 @@ public class ECHO {
         this.keepNoveltyDecisionModel = keepNoveltyDecisionModel;
         this.chunkSize = chunkSize;
         this.random = new Random(randomGeneratorSeed);
+        this.multiClassNoveltyDetection = multiClassNoveltyDetection;
 
         this.timestamp = 1;
         this.warmed = false;
@@ -125,7 +129,11 @@ public class ECHO {
             this.filteredOutlierBuffer.add(sample);
             this.confusionMatrix.addUnknown(sample.getY());
             if (this.filteredOutlierBuffer.size() >= this.filteredOutlierBufferMaxSize) {
-                this.novelClassDetection();
+                if (this.multiClassNoveltyDetection) {
+                    this.novelClassDetectionMultiClass();
+                } else {
+                    this.novelClassDetectionSingleClass();
+                }
             }
         }
 
@@ -338,7 +346,7 @@ public class ECHO {
         return new BetaDistribution(alpha, beta);
     }
 
-    private void novelClassDetection() {
+    private void novelClassDetectionSingleClass() {
 
         this.filteredOutlierBuffer.removeIf(p -> p.getT() < this.timestamp - this.chunkSize);
 
@@ -374,6 +382,65 @@ public class ECHO {
             this.incrementNoveltyCount();
 
         }
+
+    }
+
+    private void novelClassDetectionMultiClass() {
+
+        this.filteredOutlierBuffer.removeIf(p -> p.getT() < this.timestamp - this.chunkSize);
+
+        final List<Cluster> clusters = KMeansPlusPlus
+                .execute(this.filteredOutlierBuffer, this.k, this.random)
+                .stream()
+                .filter(cluster -> cluster.getSize() >= this.filteredOutlierBuffer.size() / this.k)
+                .collect(Collectors.toList());
+
+
+        final List<PseudoPoint> pseudoPoints = new ArrayList<>();
+        ensemble.stream().map(Model::getPseudoPoints).forEach(pseudoPoints::addAll);
+
+        for (Cluster cluster : clusters) {
+
+            if (calculateSilhouette(cluster, pseudoPoints) <= 0) {
+                continue;
+            }
+
+            this.filteredOutlierBuffer.removeAll(cluster.getSamples());
+            if (this.interceptor != null) {
+                final Context context = PCF.buildContext(cluster, Category.NOVELTY, ensemble);
+                this.interceptor.intercept(context);
+            }
+
+            this.addNovelty(cluster);
+            this.incrementNoveltyCount();
+
+        }
+
+
+    }
+
+
+    static double calculateSilhouette(final Cluster cluster, final List<PseudoPoint> pseudoPoints) {
+
+        final Sample centroid = cluster.calculateCentroid();
+
+        final List<Sample> decisionModelCentroids = pseudoPoints
+                .stream()
+                .map(PseudoPoint::getCentroid)
+                .sorted(new SampleDistanceComparator(centroid))
+                .collect(Collectors.toList());
+
+        final double a = cluster.calculateStandardDeviation();
+
+        final double b;
+        if (decisionModelCentroids.size() > 0) {
+            final Sample closestCentroid = decisionModelCentroids.get(0);
+            b = centroid.distance(closestCentroid);
+        } else {
+            b = Double.MAX_VALUE;
+        }
+
+        return (b - a) / Math.max(b, a);
 
     }
 
@@ -472,17 +539,8 @@ public class ECHO {
 
         if (this.interceptor != null) {
             for (ImpurityBasedCluster cluster : clusters) {
-
-                final long numberOfLabeledSamples = cluster
-                        .getSamples()
-                        .stream()
-                        .filter(labeledSamples::contains)
-                        .count();
-
-                if (2 * numberOfLabeledSamples < cluster.getSamples().size()) {
-                    final Context context = PCF.buildContext(cluster, labeledSamples, this.ensemble);
-                    this.interceptor.intercept(context);
-                }
+                final Context context = PCF.buildContext(cluster, labeledSamples, this.ensemble);
+                this.interceptor.intercept(context);
             }
         }
 

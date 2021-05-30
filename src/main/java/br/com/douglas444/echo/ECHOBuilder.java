@@ -18,7 +18,8 @@ public class ECHOBuilder implements StreamsProcessorBuilder {
                        int ensembleSize,
                        int randomGeneratorSeed,
                        int chunkSize,
-                       boolean keepNoveltyDecisionModel) {
+                       boolean keepNoveltyDecisionModel,
+                       boolean multiClassNoveltyDetection) {
 
         echo = new ECHO(
                 q,
@@ -33,6 +34,7 @@ public class ECHOBuilder implements StreamsProcessorBuilder {
                 randomGeneratorSeed,
                 chunkSize,
                 keepNoveltyDecisionModel,
+                multiClassNoveltyDetection,
                 null);
 
     }
@@ -49,6 +51,7 @@ public class ECHOBuilder implements StreamsProcessorBuilder {
                        int randomGeneratorSeed,
                        int chunkSize,
                        boolean keepNoveltyDecisionModel,
+                       boolean multiClassNoveltyDetection,
                        Interceptor interceptor) {
 
         echo = new ECHO(
@@ -64,6 +67,7 @@ public class ECHOBuilder implements StreamsProcessorBuilder {
                 randomGeneratorSeed,
                 chunkSize,
                 keepNoveltyDecisionModel,
+                multiClassNoveltyDetection,
                 interceptor);
 
     }

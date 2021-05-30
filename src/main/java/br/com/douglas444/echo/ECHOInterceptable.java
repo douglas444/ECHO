@@ -26,6 +26,7 @@ public class ECHOInterceptable implements Interceptable, Configurable {
     private static final String RANDOM_GENERATOR_SEED = "Seed";
     private static final String CHUNK_SIZE = "Chunk size";
     private static final String NOVELTY_DECISION_MODEL = "Novelty decision model {0,1}";
+    private static final String MULTI_CLASS_NOVELTY_DETECTION = "Multi class novelty detection {0,1}";
     private static final String DATASET_FILE_PATH = "Dataset CSV's (separated by ';')";
     private static final String LOG_INTERVAL = "Log interval";
 
@@ -41,6 +42,7 @@ public class ECHOInterceptable implements Interceptable, Configurable {
     private static final double DEFAULT_RANDOM_GENERATOR_SEED = 0;
     private static final double DEFAULT_CHUNK_SIZE = 2000;
     private static final double DEFAULT_NOVELTY_DECISION_MODEL = 1;
+    private static final double DEFAULT_MULTI_CLASS_NOVELTY_DETECTION = 1;
     private static final double DEFAULT_LOG_INTERVAL = 1000;
 
     final private HashMap<String, Double> numericParameters;
@@ -62,6 +64,7 @@ public class ECHOInterceptable implements Interceptable, Configurable {
         this.numericParameters.put(RANDOM_GENERATOR_SEED, DEFAULT_RANDOM_GENERATOR_SEED);
         this.numericParameters.put(CHUNK_SIZE, DEFAULT_CHUNK_SIZE);
         this.numericParameters.put(NOVELTY_DECISION_MODEL, DEFAULT_NOVELTY_DECISION_MODEL);
+        this.numericParameters.put(MULTI_CLASS_NOVELTY_DETECTION, DEFAULT_MULTI_CLASS_NOVELTY_DETECTION);
         this.numericParameters.put(LOG_INTERVAL, DEFAULT_LOG_INTERVAL);
 
         this.nominalParameters = new HashMap<>();
@@ -80,6 +83,15 @@ public class ECHOInterceptable implements Interceptable, Configurable {
             throw new IllegalArgumentException();
         }
 
+        final boolean multiClassNoveltyDetection;
+        if (this.numericParameters.get(MULTI_CLASS_NOVELTY_DETECTION).equals(0d)) {
+            multiClassNoveltyDetection = false;
+        } else if (this.numericParameters.get(MULTI_CLASS_NOVELTY_DETECTION).equals(1d)) {
+            multiClassNoveltyDetection = true;
+        } else {
+            throw new IllegalArgumentException();
+        }
+
         final ECHOBuilder echoBuilder = new ECHOBuilder(
                 this.numericParameters.get(Q).intValue(),
                 this.numericParameters.get(K).intValue(),
@@ -93,6 +105,7 @@ public class ECHOInterceptable implements Interceptable, Configurable {
                 this.numericParameters.get(RANDOM_GENERATOR_SEED).intValue(),
                 this.numericParameters.get(CHUNK_SIZE).intValue(),
                 noveltyDetectionDecisionModel,
+                multiClassNoveltyDetection,
                 interceptor);
 
         final ECHOController controller = echoBuilder.build();

@@ -28,6 +28,7 @@ public class ECHOTest {
     private static final int RANDOM_GENERATOR_SEED = 0;
     private static final int CHUNK_SIZE = 2000;
     private static final boolean KEEP_NOVELTY_DECISION_MODEL = true;
+    private static final boolean MULTI_CLASS_NOVELTY_DETECTION = false;
 
     @Test
     public void execute() throws IOException {
@@ -44,7 +45,8 @@ public class ECHOTest {
                 ENSEMBLE_SIZE,
                 RANDOM_GENERATOR_SEED,
                 CHUNK_SIZE,
-                KEEP_NOVELTY_DECISION_MODEL);
+                KEEP_NOVELTY_DECISION_MODEL,
+                MULTI_CLASS_NOVELTY_DETECTION);
 
         final ECHOController echoController = echoBuilder.build();
 
