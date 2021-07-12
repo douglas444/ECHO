@@ -179,7 +179,7 @@ public class ECHO {
                     }
                 });
 
-        final Integer votedLabel;
+        Integer label;
         final double ensembleConfidence;
         final boolean explained;
         final boolean novelty;
@@ -194,32 +194,37 @@ public class ECHO {
                 final double distance = sample.distance(closest.calculateCentroid());
 
                 if (distance <= 2 * closest.calculateStandardDeviation()) {
-                    votedLabel = closest.getLabel();
+                    label = closest.getLabel();
                     ensembleConfidence = 1;
                     explained = true;
                     novelty = true;
                 } else {
-                    votedLabel = null;
+                    label = null;
                     ensembleConfidence = 0;
                     explained = false;
                     novelty = false;
                 }
 
             } else {
-                votedLabel = null;
+                label = null;
                 ensembleConfidence = 0;
                 explained = false;
                 novelty = false;
             }
 
         } else {
-            votedLabel = Collections.max(votesByLabel.entrySet(), Map.Entry.comparingByValue()).getKey();
-            ensembleConfidence = calculateConfidence(votedLabel, classifications);
+            label = Collections.max(votesByLabel.entrySet(), Map.Entry.comparingByValue()).getKey();
+            ensembleConfidence = calculateConfidence(label, classifications);
             explained = true;
             novelty = false;
         }
 
-        return new Classification(votedLabel, sample, ensembleConfidence, explained, novelty);
+        if (ensembleConfidence < this.activeLearningThreshold) {
+            label = sample.getY();
+            this.labeledSamplesCount++;
+        }
+
+        return new Classification(label, sample, ensembleConfidence, explained, novelty);
 
 
     }
@@ -537,12 +542,10 @@ public class ECHO {
 
         this.window.stream()
                 .filter(classification -> classification.getConfidence() < this.activeLearningThreshold)
-                .map(Classification::getSample)
+                .map(classification -> new Sample(classification.getSample().getX(), classification.getLabel()))
                 .forEach(samples::add);
 
         final Set<Sample> labeledSamples = new HashSet<>(samples);
-
-        this.labeledSamplesCount += samples.size();
 
         this.window.stream()
                 .filter(classification -> classification.getConfidence() >= this.activeLearningThreshold)
