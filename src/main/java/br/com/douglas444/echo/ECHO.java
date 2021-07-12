@@ -35,6 +35,8 @@ public class ECHO {
     private final int q;
     private final int k;
     private final double centroidPercentage;
+    private final int mciKMeansMaxIterations;
+    private final int conditionalModeMaxIterations;
     private final double gamma;
     private final double sensitivity;
     private final double confidenceThreshold;
@@ -53,6 +55,8 @@ public class ECHO {
     public ECHO(final int q,
                 final int k,
                 final double centroidPercentage,
+                final int mciKMeansMaxIterations,
+                final int conditionalModeMaxIterations,
                 final double gamma,
                 final double sensitivity,
                 final double confidenceThreshold,
@@ -68,6 +72,8 @@ public class ECHO {
 
         this.q = q;
         this.k = k;
+        this.mciKMeansMaxIterations = mciKMeansMaxIterations;
+        this.conditionalModeMaxIterations = conditionalModeMaxIterations;
         this.centroidPercentage = centroidPercentage;
         this.gamma = gamma;
         this.sensitivity = sensitivity;
@@ -94,7 +100,12 @@ public class ECHO {
         this.ensemble = new ArrayList<>();
         this.noveltyMicroClusters = new ArrayList<>();
         this.window = new ArrayList<>();
-        this.heater = new Heater(chunkSize, this.centroidPercentage, this.random);
+        this.heater = new Heater(
+                this.chunkSize,
+                this.centroidPercentage,
+                this.mciKMeansMaxIterations,
+                this.conditionalModeMaxIterations,
+                this.random);
 
         this.confusionMatrix = new DynamicConfusionMatrix();
         this.interceptor = interceptor;
@@ -539,7 +550,14 @@ public class ECHO {
                 .forEach(samples::add);
 
         final List<ImpurityBasedCluster> clusters = MCIKMeans
-                .execute(samples, new ArrayList<>(), this.centroidPercentage, this.random)
+                .execute(
+                        samples,
+                        new ArrayList<>(),
+                        this.mciKMeansMaxIterations,
+                        this.conditionalModeMaxIterations,
+                        this.centroidPercentage,
+                        this.random)
+
                 .stream()
                 .filter(cluster -> cluster.size() > 1)
                 .collect(Collectors.toList());

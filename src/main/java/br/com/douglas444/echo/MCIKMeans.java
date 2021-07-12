@@ -9,6 +9,8 @@ public final class MCIKMeans {
 
     public static List<ImpurityBasedCluster> execute(List<Sample> labeledSamples,
                                                      List<Sample> unlabeledSamples,
+                                                     final int maxIterations,
+                                                     final int conditionalModeMaxIterations,
                                                      final double centroidsPercentage,
                                                      final Random random) {
 
@@ -74,12 +76,20 @@ public final class MCIKMeans {
 
         }
 
-        return execute(labeledSamples, unlabeledSamples, centroids, random);
+        return execute(
+                labeledSamples,
+                unlabeledSamples,
+                maxIterations,
+                conditionalModeMaxIterations,
+                centroids,
+                random);
 
     }
 
     private static List<ImpurityBasedCluster> execute(final List<Sample> labeledSamples,
                                                       final List<Sample> unlabeledSamples,
+                                                      final int maxIterations,
+                                                      final int conditionalModeMaxIterations,
                                                       final List<Sample> centroids, final Random random) {
 
         final List<ImpurityBasedCluster> clusters = new ArrayList<>();
@@ -91,9 +101,17 @@ public final class MCIKMeans {
         }
 
         boolean changing;
-        int iterations = 10;
+        int iterations = maxIterations;
         do {
-            changing = iterativeConditionalMode(labeledSamples, unlabeledSamples, clusters, clusterById, random);
+
+            changing = iterativeConditionalMode(
+                    labeledSamples,
+                    unlabeledSamples,
+                    clusters,
+                    clusterById,
+                    random,
+                    conditionalModeMaxIterations);
+
             clusters.stream().filter(cluster -> cluster.size() > 0).forEach(ImpurityBasedCluster::updateCentroid);
             --iterations;
         } while (changing && iterations > 0);
@@ -153,7 +171,8 @@ public final class MCIKMeans {
                                                     List<Sample> unlabeledSamples,
                                                     final List<ImpurityBasedCluster> clusters,
                                                     final HashMap<Integer, ImpurityBasedCluster> clusterById,
-                                                    final Random random) {
+                                                    final Random random,
+                                                    final int maxIterations) {
 
         assert !labeledSamples.isEmpty();
 
@@ -162,7 +181,7 @@ public final class MCIKMeans {
 
         boolean changed;
         boolean noChanges = true;
-        int iterations = 10;
+        int iterations = maxIterations;
         do {
 
             Collections.shuffle(labeledSamples, random);

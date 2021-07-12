@@ -19,6 +19,8 @@ public class ECHOTest {
     private static final int Q = 400;
     private static final int K = 50;
     private static final int CENTROIDS_PERCENTAGE = 10;
+    private static final int MCIKMEANS_MAX_ITERATIONS = 10;
+    private static final int CONDITIONAL_MODE_MAX_ITERATIONS = 10;
     private static final double GAMMA = 0.5;
     private static final double SENSITIVITY = 0.001;
     private static final double CONFIDENCE_THRESHOLD = 0.6;
@@ -38,6 +40,8 @@ public class ECHOTest {
                 Q,
                 K,
                 CENTROIDS_PERCENTAGE,
+                MCIKMEANS_MAX_ITERATIONS,
+                CONDITIONAL_MODE_MAX_ITERATIONS,
                 GAMMA,
                 SENSITIVITY,
                 CONFIDENCE_THRESHOLD,

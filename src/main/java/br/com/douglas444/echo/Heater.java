@@ -10,13 +10,21 @@ import java.util.stream.Collectors;
 class Heater {
 
     private final double centroidsPercentage;
+    private int mciKMeansMaxIterations;
+    private int conditionalModeMaxIterations;
     private final Random random;
     private final List<Sample> chunk;
     private final List<Model> ensemble;
     private final int chunkSize;
 
-    Heater(int chunkSize, double centroidsPercentage, Random random) {
+    Heater(int chunkSize,
+           double centroidsPercentage,
+           int mciKMeansMaxIterations,
+           int conditionalModeMaxIterations,
+           Random random) {
         this.centroidsPercentage = centroidsPercentage;
+        this.mciKMeansMaxIterations = mciKMeansMaxIterations;
+        this.conditionalModeMaxIterations = conditionalModeMaxIterations;
         this.random = random;
         this.chunk = new ArrayList<>();
         this.ensemble = new ArrayList<>();
@@ -30,7 +38,13 @@ class Heater {
         if (this.chunk.size() >= this.chunkSize) {
 
             final List<PseudoPoint> pseudoPoints = MCIKMeans
-                    .execute(this.chunk, new ArrayList<>(), this.centroidsPercentage, this.random)
+                    .execute(
+                            this.chunk,
+                            new ArrayList<>(),
+                            this.mciKMeansMaxIterations,
+                            this.conditionalModeMaxIterations,
+                            this.centroidsPercentage,
+                            this.random)
                     .stream()
                     .filter(cluster -> cluster.size() > 1)
                     .map(PseudoPoint::new)
