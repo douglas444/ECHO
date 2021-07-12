@@ -9,6 +9,7 @@ public class ECHOBuilder implements StreamsProcessorBuilder {
 
     public ECHOBuilder(int q,
                        int k,
+                       double centroidsPercentage,
                        double gamma,
                        double sensitivity,
                        double confidenceThreshold,
@@ -24,6 +25,7 @@ public class ECHOBuilder implements StreamsProcessorBuilder {
         echo = new ECHO(
                 q,
                 k,
+                centroidsPercentage,
                 gamma,
                 sensitivity,
                 confidenceThreshold,
@@ -41,6 +43,7 @@ public class ECHOBuilder implements StreamsProcessorBuilder {
 
     public ECHOBuilder(int q,
                        int k,
+                       double centroidPercentage,
                        double gamma,
                        double sensitivity,
                        double confidenceThreshold,
@@ -57,6 +60,7 @@ public class ECHOBuilder implements StreamsProcessorBuilder {
         echo = new ECHO(
                 q,
                 k,
+                centroidPercentage,
                 gamma,
                 sensitivity,
                 confidenceThreshold,

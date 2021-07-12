@@ -34,6 +34,7 @@ public class ECHO {
     private final Heater heater;
     private final int q;
     private final int k;
+    private final double centroidPercentage;
     private final double gamma;
     private final double sensitivity;
     private final double confidenceThreshold;
@@ -49,23 +50,25 @@ public class ECHO {
 
     private final Interceptor interceptor;
 
-    public ECHO(int q,
-                int k,
-                double gamma,
-                double sensitivity,
-                double confidenceThreshold,
-                double activeLearningThreshold,
-                int filteredOutlierBufferMaxSize,
-                int confidenceWindowMaxSize,
-                int ensembleSize,
-                int randomGeneratorSeed,
-                int chunkSize,
-                boolean keepNoveltyDecisionModel,
-                boolean multiClassNoveltyDetection,
-                Interceptor interceptor) {
+    public ECHO(final int q,
+                final int k,
+                final double centroidPercentage,
+                final double gamma,
+                final double sensitivity,
+                final double confidenceThreshold,
+                final double activeLearningThreshold,
+                final int filteredOutlierBufferMaxSize,
+                final int confidenceWindowMaxSize,
+                final int ensembleSize,
+                final int randomGeneratorSeed,
+                final int chunkSize,
+                final boolean keepNoveltyDecisionModel,
+                final boolean multiClassNoveltyDetection,
+                final Interceptor interceptor) {
 
         this.q = q;
         this.k = k;
+        this.centroidPercentage = centroidPercentage;
         this.gamma = gamma;
         this.sensitivity = sensitivity;
         this.confidenceThreshold = confidenceThreshold;
@@ -91,7 +94,7 @@ public class ECHO {
         this.ensemble = new ArrayList<>();
         this.noveltyMicroClusters = new ArrayList<>();
         this.window = new ArrayList<>();
-        this.heater = new Heater(chunkSize, this.k, this.random);
+        this.heater = new Heater(chunkSize, this.centroidPercentage, this.random);
 
         this.confusionMatrix = new DynamicConfusionMatrix();
         this.interceptor = interceptor;
@@ -373,7 +376,9 @@ public class ECHO {
 
                 if (this.interceptor != null) {
                     final Context context = PCF.buildContext(cluster, Category.NOVELTY, ensemble);
-                    this.interceptor.intercept(context);
+                    if (context.getKnownLabels().size() > 1) {
+                        this.interceptor.intercept(context);
+                    }
                 }
 
                 this.addNovelty(cluster);
@@ -408,7 +413,9 @@ public class ECHO {
             this.filteredOutlierBuffer.removeAll(cluster.getSamples());
             if (this.interceptor != null) {
                 final Context context = PCF.buildContext(cluster, Category.NOVELTY, ensemble);
-                this.interceptor.intercept(context);
+                if (context.getKnownLabels().size() > 1) {
+                    this.interceptor.intercept(context);
+                }
             }
 
             this.addNovelty(cluster);
@@ -532,7 +539,7 @@ public class ECHO {
                 .forEach(samples::add);
 
         final List<ImpurityBasedCluster> clusters = MCIKMeans
-                .execute(samples, new ArrayList<>(), this.k, this.random)
+                .execute(samples, new ArrayList<>(), this.centroidPercentage, this.random)
                 .stream()
                 .filter(cluster -> cluster.size() > 1)
                 .collect(Collectors.toList());
@@ -540,7 +547,9 @@ public class ECHO {
         if (this.interceptor != null) {
             for (ImpurityBasedCluster cluster : clusters) {
                 final Context context = PCF.buildContext(cluster, labeledSamples, this.ensemble);
-                this.interceptor.intercept(context);
+                if (context.getKnownLabels().size() > 1) {
+                    this.interceptor.intercept(context);
+                }
             }
         }
 

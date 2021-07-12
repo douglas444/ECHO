@@ -9,14 +9,14 @@ import java.util.stream.Collectors;
 
 class Heater {
 
-    private final int k;
+    private final double centroidsPercentage;
     private final Random random;
     private final List<Sample> chunk;
     private final List<Model> ensemble;
     private final int chunkSize;
 
-    Heater(int chunkSize, int k, Random random) {
-        this.k = k;
+    Heater(int chunkSize, double centroidsPercentage, Random random) {
+        this.centroidsPercentage = centroidsPercentage;
         this.random = random;
         this.chunk = new ArrayList<>();
         this.ensemble = new ArrayList<>();
@@ -30,7 +30,7 @@ class Heater {
         if (this.chunk.size() >= this.chunkSize) {
 
             final List<PseudoPoint> pseudoPoints = MCIKMeans
-                    .execute(this.chunk, new ArrayList<>(), this.k, this.random)
+                    .execute(this.chunk, new ArrayList<>(), this.centroidsPercentage, this.random)
                     .stream()
                     .filter(cluster -> cluster.size() > 1)
                     .map(PseudoPoint::new)

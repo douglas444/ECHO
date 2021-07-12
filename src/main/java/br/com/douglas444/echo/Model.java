@@ -97,8 +97,11 @@ public class Model {
 
         final double distance = sample.distance(closestPseudoPoint.getCentroid());
         final double difference = closestPseudoPoint.getRadius() - distance;
-
-        return difference / Math.max(distance, closestPseudoPoint.getRadius());
+        final double association = difference / Math.max(distance, closestPseudoPoint.getRadius());
+        if (Double.isNaN(association)) {
+            return 0;
+        }
+        return association;
     }
 
     private static double calculatePearsonCorrelationCoefficient(final double[] v1, final double[] v2) {

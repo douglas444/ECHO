@@ -18,17 +18,18 @@ public class ECHOTest {
 
     private static final int Q = 400;
     private static final int K = 50;
+    private static final int CENTROIDS_PERCENTAGE = 10;
     private static final double GAMMA = 0.5;
     private static final double SENSITIVITY = 0.001;
     private static final double CONFIDENCE_THRESHOLD = 0.6;
-    private static final double ACTIVE_LEARNING_THRESHOLD = 0.5;
+    private static final double ACTIVE_LEARNING_THRESHOLD = 0.4;
     private static final int FILTERED_OUTLIER_BUFFER_MAX_SIZE = 2000;
     private static final int CONFIDENCE_WINDOW_MAX_SIZE = 1000;
     private static final int ENSEMBLE_SIZE = 5;
     private static final int RANDOM_GENERATOR_SEED = 0;
     private static final int CHUNK_SIZE = 2000;
     private static final boolean KEEP_NOVELTY_DECISION_MODEL = true;
-    private static final boolean MULTI_CLASS_NOVELTY_DETECTION = false;
+    private static final boolean MULTI_CLASS_NOVELTY_DETECTION = true;
 
     @Test
     public void execute() throws IOException {
@@ -36,6 +37,7 @@ public class ECHOTest {
         final ECHOBuilder echoBuilder = new ECHOBuilder(
                 Q,
                 K,
+                CENTROIDS_PERCENTAGE,
                 GAMMA,
                 SENSITIVITY,
                 CONFIDENCE_THRESHOLD,
@@ -74,17 +76,17 @@ public class ECHOTest {
         //Asserting UnkR
         double unkR = echoController.getDynamicConfusionMatrix().measureUnkR();
         unkR = (double) Math.round(unkR * 10000) / 10000;
-        assertEquals(0.1067, unkR, "The final value of UnkR differs from the expected " +
+        assertEquals(0.1308, unkR, "The final value of UnkR differs from the expected " +
                 "for the dataset MOA3_fold1 with the following parameters configuration:\n" + parameters());
 
         //Asserting CER
         double cer = echoController.getDynamicConfusionMatrix().measureCER();
         cer = (double) Math.round(cer * 10000) / 10000;
-        assertEquals(0.0077, cer, "The final value of CER differs from the expected for the " +
+        assertEquals(0.0000, cer, "The final value of CER differs from the expected for the " +
                 "dataset MOA3_fold1 with the following parameters configuration:\n" + parameters());
 
         //Asserting number of novelties
-        assertEquals(4, echoController.getNoveltyCount(),
+        assertEquals(108, echoController.getNoveltyCount(),
                 "The final value of Novelty Count differs from the expected for the dataset " +
                         "MOA3_fold1 with the following parameters configuration:\n" + parameters());
 

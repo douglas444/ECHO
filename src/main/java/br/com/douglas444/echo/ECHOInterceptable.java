@@ -16,6 +16,7 @@ public class ECHOInterceptable implements Interceptable, Configurable {
 
     private static final String Q = "Q";
     private static final String K = "K";
+    private static final String CENTROIDS_PERCENTAGE = "Centroids percentage";
     private static final String GAMMA = "Gamma";
     private static final String SENSITIVITY = "Sensitivity";
     private static final String CONFIDENCE_THRESHOLD = "Confidence threshold";
@@ -32,6 +33,7 @@ public class ECHOInterceptable implements Interceptable, Configurable {
 
     private static final double DEFAULT_Q = 400;
     private static final double DEFAULT_K = 50;
+    private static final double DEFAULT_CENTROIDS_PERCENTAGE = 10;
     private static final double DEFAULT_GAMMA = 0.5;
     private static final double DEFAULT_SENSITIVITY = 0.001;
     private static final double DEFAULT_CONFIDENCE_THRESHOLD = 0.6;
@@ -95,6 +97,7 @@ public class ECHOInterceptable implements Interceptable, Configurable {
         final ECHOBuilder echoBuilder = new ECHOBuilder(
                 this.numericParameters.get(Q).intValue(),
                 this.numericParameters.get(K).intValue(),
+                this.numericParameters.get(CENTROIDS_PERCENTAGE),
                 this.numericParameters.get(GAMMA),
                 this.numericParameters.get(SENSITIVITY),
                 this.numericParameters.get(CONFIDENCE_THRESHOLD),

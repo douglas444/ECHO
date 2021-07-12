@@ -9,11 +9,11 @@ public final class MCIKMeans {
 
     public static List<ImpurityBasedCluster> execute(List<Sample> labeledSamples,
                                                      List<Sample> unlabeledSamples,
-                                                     final int k, final Random random) {
+                                                     final double centroidsPercentage,
+                                                     final Random random) {
 
-        if (k < 2) {
-            throw new IllegalArgumentException();
-        }
+        final int k = (int) ((labeledSamples.size() + unlabeledSamples.size())
+                / (double) 100 * centroidsPercentage);
 
         if (labeledSamples.size() == 0) {
             throw new IllegalArgumentException();
@@ -61,7 +61,7 @@ public final class MCIKMeans {
         for (int i = 0; i < lists.size(); ++i) {
 
             List<Sample> samples = lists.get(i);
-            centroids.addAll(chooseCentroids(samples, numbersOfCentroids[i]));
+            centroids.addAll(chooseCentroids(samples, numbersOfCentroids[i], random));
 
             if (centroids.size() < numbersOfCentroids[i] && !unlabeledSamples.isEmpty()) {
                 final List<Sample> fillingSamples = new ArrayList<>(unlabeledSamples);
@@ -91,13 +91,14 @@ public final class MCIKMeans {
         }
 
         boolean changing;
-
+        int iterations = 10;
         do {
             changing = iterativeConditionalMode(labeledSamples, unlabeledSamples, clusters, clusterById, random);
             clusters.stream().filter(cluster -> cluster.size() > 0).forEach(ImpurityBasedCluster::updateCentroid);
-        } while (changing);
+            --iterations;
+        } while (changing && iterations > 0);
 
-        clusters.removeIf(cluster -> cluster.size() == 0);
+        clusters.removeIf(cluster -> cluster.size() < 2);
 
         labeledSamples.forEach(sample -> sample.setId(null));
         unlabeledSamples.forEach(sample -> sample.setId(null));
@@ -106,7 +107,7 @@ public final class MCIKMeans {
 
     }
 
-    private static List<Sample> chooseCentroids(final List<Sample> samples, final int k) {
+    private static List<Sample> chooseCentroids(final List<Sample> samples, final int k, final Random random) {
 
         if (samples.size() <= k) {
             return samples;
@@ -116,9 +117,12 @@ public final class MCIKMeans {
         final List<Sample> candidates = new ArrayList<>(samples);
 
         for (int i = 0; i < k; ++i) {
-            Sample centroid = farthestFirstTraversalHeuristic(candidates, centroids);
-            candidates.remove(centroid);
-            centroids.add(centroid);
+            //Sample centroid = farthestFirstTraversalHeuristic(candidates, centroids);
+            final Sample selected = candidates.get(random.ints(0, candidates.size())
+                    .findFirst()
+                    .orElse(0));
+            candidates.remove(selected);
+            centroids.add(selected);
 
         }
 
@@ -158,7 +162,7 @@ public final class MCIKMeans {
 
         boolean changed;
         boolean noChanges = true;
-
+        int iterations = 10;
         do {
 
             Collections.shuffle(labeledSamples, random);
@@ -229,8 +233,8 @@ public final class MCIKMeans {
                 }
 
             }
-
-        } while (changed);
+            --iterations;
+        } while (changed && iterations > 0);
 
         return !noChanges;
 
